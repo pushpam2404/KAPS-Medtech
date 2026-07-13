@@ -30,8 +30,8 @@ router.get('/today', authenticateToken, requireDoctor, async (req, res) => {
 
         res.json(result.rows);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: err.message });
+        console.error('[DOCTOR TODAY ERROR]', err.message);
+        res.status(500).json({ error: 'Failed to fetch appointments' });
     }
 });
 
@@ -57,15 +57,19 @@ router.get('/patient/:id', authenticateToken, requireDoctor, async (req, res) =>
             history: historyRes.rows
         });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: err.message });
+        console.error('[PATIENT ERROR]', err.message);
+        res.status(500).json({ error: 'Failed to fetch patient details' });
     }
 });
 
 // POST /api/doctor/record
-// Body: { appointment_id, diagnosis, advice, attached_reports, follow_up_date, prescriptions: [], patient_updates: {} }
 router.post('/record', authenticateToken, requireDoctor, async (req, res) => {
     const { appointment_id, diagnosis, advice, attached_reports, follow_up_date, prescriptions, patient_updates } = req.body;
+
+    // Validate required fields
+    if (!appointment_id || !diagnosis) {
+        return res.status(400).json({ error: 'Appointment ID and diagnosis are required' });
+    }
 
     const client = await db.pool.connect();
 
@@ -79,12 +83,21 @@ router.post('/record', authenticateToken, requireDoctor, async (req, res) => {
         );
         const recordId = mrRes.rows[0].id;
 
-        // 2. Insert Prescriptions
+        // 2. Batch Insert Prescriptions
         if (prescriptions && prescriptions.length > 0) {
+            const values = [];
+            const params = [];
+            let idx = 1;
             for (const p of prescriptions) {
+                if (p.name) {
+                    values.push(`($${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++})`);
+                    params.push(recordId, p.name, p.dosage || '', p.freq || '', p.duration || '');
+                }
+            }
+            if (values.length > 0) {
                 await client.query(
-                    'INSERT INTO Prescriptions (record_id, medicine_name, dosage, frequency, duration) VALUES ($1, $2, $3, $4, $5)',
-                    [recordId, p.name, p.dosage, p.freq, p.duration]
+                    `INSERT INTO Prescriptions (record_id, medicine_name, dosage, frequency, duration) VALUES ${values.join(', ')}`,
+                    params
                 );
             }
         }
@@ -116,8 +129,8 @@ router.post('/record', authenticateToken, requireDoctor, async (req, res) => {
 
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error(err);
-        res.status(500).json({ error: err.message });
+        console.error('[RECORD SAVE ERROR]', err.message);
+        res.status(500).json({ error: 'Failed to save treatment record' });
     } finally {
         client.release();
     }
@@ -127,11 +140,21 @@ router.post('/record', authenticateToken, requireDoctor, async (req, res) => {
 router.post('/cancel', authenticateToken, requireDoctor, async (req, res) => {
     const { appointment_id } = req.body;
     try {
-        await db.query('UPDATE Appointments SET status = \'Cancelled\' WHERE id = $1', [appointment_id]);
+        // Verify this doctor owns the appointment
+        const docRes = await db.query('SELECT id FROM Doctors WHERE user_id = $1', [req.user.id]);
+        if (docRes.rows.length === 0) return res.status(400).json({ error: 'Doctor profile not found' });
+
+        const result = await db.query(
+            'UPDATE Appointments SET status = \'Cancelled\' WHERE id = $1 AND doctor_id = $2 AND status = \'Booked\' RETURNING id',
+            [appointment_id, docRes.rows[0].id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Appointment not found or already processed' });
+        }
         res.json({ message: 'Appointment Cancelled' });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Failed to cancel appointment' });
     }
 });
 

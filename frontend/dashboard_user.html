@@ -7,151 +7,143 @@
     <title>Dashboard - KAPS MedTech</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
-    <style>
-        .dept-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-            gap: 1rem;
-        }
-
-        .dept-card {
-            background: rgba(0, 206, 201, 0.05);
-            border: 1px solid var(--primary);
-            padding: 1.5rem;
-            border-radius: 8px;
-            cursor: pointer;
-            text-align: center;
-            transition: 0.2s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100px;
-            font-weight: 600;
-            color: var(--primary);
-        }
-
-        .dept-card:hover {
-            background: rgba(0, 206, 201, 0.15);
-            transform: translateY(-3px);
-            box-shadow: 0 4px 15px rgba(0, 206, 201, 0.2);
-        }
-
-        .slots-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-            gap: 0.5rem;
-        }
-
-        .slot {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            padding: 0.5rem;
-            text-align: center;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-
-        .slot:hover {
-            border-color: var(--primary);
-        }
-
-        .slot.selected {
-            background: var(--primary);
-            color: #000;
-            font-weight: bold;
-            border-color: var(--primary);
-        }
-
-        .search-results {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            z-index: 50;
-            max-height: 200px;
-            overflow-y: auto;
-            border-radius: 0 0 8px 8px;
-        }
-
-        .search-item {
-            padding: 0.8rem;
-            cursor: pointer;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .search-item:hover {
-            background: rgba(255, 255, 255, 0.05);
-        }
-    </style>
 </head>
 
 <body>
-    <nav>
-        <div class="container flex" style="justify-content: space-between; align-items: center;">
-            <div class="flex items-center gap-2">
-                <img src="img/logo.png" alt="Logo" style="height: 40px;">
-                <div class="brand">KAPS <span>MedTech</span></div>
+    <header>
+        <nav>
+            <div class="container flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <img src="img/logo.png" alt="KAPS MedTech logo" class="brand-logo">
+                    <div class="brand">KAPS <span>MedTech</span></div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="role-badge" class="status-badge status-Completed">Student</span>
+                    <span id="welcome-msg" class="text-white">Welcome</span>
+                    <button id="logoutBtn" class="btn btn-outline btn-sm" style="margin-left: 1rem;">Logout</button>
+                </div>
             </div>
-            <div class="flex items-center gap-2">
-                <span id="role-badge" class="status-badge status-Completed">Student</span>
-                <span id="welcome-msg" class="text-white">Welcome</span>
-                <button id="logoutBtn" class="btn btn-outline"
-                    style="margin-left: 1rem; padding: 0.5rem 1rem;">Logout</button>
-            </div>
-        </div>
-    </nav>
+        </nav>
+    </header>
 
-    <div class="container mt-4 flex" style="align-items: flex-start; gap: 2rem; position: relative; z-index: 10;">
-        <div class="card" style="width: 250px; padding: 0; overflow: hidden; position: sticky; top: 100px;">
+    <div class="container dashboard-layout">
+        <nav class="sidebar-nav" aria-label="Dashboard navigation">
             <div class="sidebar-menu">
-                <a class="menu-item active" data-view="view-book">Book Appointment</a>
-                <a class="menu-item" data-view="view-appointments">My Appointments</a>
-                <a class="menu-item" data-view="view-records">Medical Records</a>
-                <a class="menu-item" data-view="view-medicine">My Medicine</a>
-                <a class="menu-item" data-view="view-reminders">Reminders</a>
+                <button class="menu-item active" data-view="view-book">Book Appointment</button>
+                <button class="menu-item" data-view="view-appointments">My Appointments</button>
+                <button class="menu-item" data-view="view-records">Medical Records</button>
+                <button class="menu-item" data-view="view-medicine">My Medicine</button>
+                <button class="menu-item" data-view="view-reminders">Reminders</button>
             </div>
-        </div>
+        </nav>
 
-        <div class="w-full">
+        <main class="main-content">
             <!-- 1. Book Appointment -->
-            <div id="view-book" class="view-section">
-                <h2 class="mb-4">Book Appointment</h2>
+            <section id="view-book" class="view-section" aria-labelledby="heading-book">
+                <h2 id="heading-book" class="mb-4">Book Appointment</h2>
                 <div class="card">
 
                     <!-- Step 1: Reason + Dept -->
                     <div id="book-step-1">
                         <div class="form-group mb-4">
-                            <label class="block mb-2 text-sm text-muted">Reason for Appointment</label>
-                            <textarea id="symptom-input" rows="2" class="form-input"
-                                placeholder="Describe your issue detailedly..."></textarea>
+                            <label class="block mb-2 text-sm text-muted" for="symptom-input">Reason for Appointment</label>
+                            <input type="text" id="symptom-input" class="form-input" list="symptoms-datalist"
+                                placeholder="Select a common symptom or type your own...">
+                            <datalist id="symptoms-datalist">
+                                <option value="Fever / Shivering">
+                                <option value="Common Cold / Runny Nose">
+                                <option value="Cough and Sore Throat">
+                                <option value="Chest Pain / Pressure">
+                                <option value="Heart Palpitations / Racing Pulse">
+                                <option value="Asthma / Difficulty Breathing">
+                                <option value="Stomach Ache / Acid Heartburn">
+                                <option value="Nausea / Vomiting">
+                                <option value="Diarrhea / Loose Stools">
+                                <option value="Constipation / Gas Bloating">
+                                <option value="Headache / Severe Migraine">
+                                <option value="Dizziness / Vertigo Loss of Balance">
+                                <option value="Numbness / Tingling in Limbs">
+                                <option value="Knee Pain / Bone Injury">
+                                <option value="Severe Back Pain / Joint Stiffness">
+                                <option value="Muscle Strain / Joint Sprain">
+                                <option value="Skin Rash / Itchy Spots">
+                                <option value="Acne / Pimples Breakout">
+                                <option value="Severe Anxiety / Insomnia">
+                                <option value="Depressed Mood / Sleep Issues">
+                                <option value="Ear Pain / Hearing Loss">
+                                <option value="Sinus Pressure / Blocked Nose">
+                                <option value="Blurry Vision / Eye Redness">
+                                <option value="Toothache / Cavity Pain">
+                                <option value="Bleeding Gums / Tooth Sensitivity">
+                                <option value="Urinary Infection / Painful Urination">
+                                <option value="Thyroid / Sudden Weight Changes">
+                            </datalist>
+                            <div id="symptom-suggestion" class="text-sm mt-2 hidden" style="font-weight:600; padding:0.5rem 0.75rem; border-radius:6px; display:inline-block;"></div>
                         </div>
                         <label class="mb-2 block text-sm text-muted">Select Department</label>
                         <div class="dept-grid">
-                            <div class="dept-card" onclick="selectDept('General Medicine')">General Medicine</div>
-                            <div class="dept-card" onclick="selectDept('Cardiology')">Cardiology</div>
-                            <div class="dept-card" onclick="selectDept('Pulmonology')">Pulmonology</div>
-                            <div class="dept-card" onclick="selectDept('Gastroenterology')">Gastroenterology</div>
-                            <div class="dept-card" onclick="selectDept('Neurology')">Neurology</div>
-                            <div class="dept-card" onclick="selectDept('Orthopedics')">Orthopedics</div>
-                            <div class="dept-card" onclick="selectDept('Dermatology')">Dermatology</div>
-                            <div class="dept-card" onclick="selectDept('Psychiatry')">Psychiatry</div>
-                            <div class="dept-card" onclick="selectDept('ENT')">ENT</div>
-                            <div class="dept-card" onclick="selectDept('Ophthalmology')">Ophthalmology</div>
-                            <div class="dept-card" onclick="selectDept('Endocrinology')">Endocrinology</div>
-                            <div class="dept-card" onclick="selectDept('Nephrology')">Nephrology</div>
-                            <div class="dept-card" onclick="selectDept('Dentistry')">Dentistry</div>
+                            <button type="button" class="dept-card" data-dept="General Medicine">
+                                <span>General Medicine</span>
+                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Fever, cold, general health checkups</small>
+                            </button>
+                            <button type="button" class="dept-card" data-dept="Cardiology">
+                                <span>Cardiology</span>
+                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Heart, chest pain, pulse issues</small>
+                            </button>
+                            <button type="button" class="dept-card" data-dept="Pulmonology">
+                                <span>Pulmonology</span>
+                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Lung, breathing, asthma & cough</small>
+                            </button>
+                            <button type="button" class="dept-card" data-dept="Gastroenterology">
+                                <span>Gastroenterology</span>
+                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Stomach, digestion, food poisoning</small>
+                            </button>
+                            <button type="button" class="dept-card" data-dept="Neurology">
+                                <span>Neurology</span>
+                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Brain, migraines, nerve & balance</small>
+                            </button>
+                            <button type="button" class="dept-card" data-dept="Orthopedics">
+                                <span>Orthopedics</span>
+                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Bone, joint & muscle pain / injuries</small>
+                            </button>
+                            <button type="button" class="dept-card" data-dept="Dermatology">
+                                <span>Dermatology</span>
+                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Skin, rashes, eczema & acne</small>
+                            </button>
+                            <button type="button" class="dept-card" data-dept="Psychiatry">
+                                <span>Psychiatry</span>
+                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Mental health, anxiety & depression</small>
+                            </button>
+                            <button type="button" class="dept-card" data-dept="ENT">
+                                <span>ENT</span>
+                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Ear, nose & throat conditions</small>
+                            </button>
+                            <button type="button" class="dept-card" data-dept="Ophthalmology">
+                                <span>Ophthalmology</span>
+                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Eye care, vision & irritation</small>
+                            </button>
+                            <button type="button" class="dept-card" data-dept="Endocrinology">
+                                <span>Endocrinology</span>
+                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Hormones, diabetes & thyroid</small>
+                            </button>
+                            <button type="button" class="dept-card" data-dept="Nephrology">
+                                <span>Nephrology</span>
+                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Kidney, bladder & urinary tract</small>
+                            </button>
+                            <button type="button" class="dept-card" data-dept="Dentistry">
+                                <span>Dentistry</span>
+                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Teeth, gum pain & cavity care</small>
+                            </button>
                         </div>
                     </div>
 
                     <!-- Step 2: Doctor -->
                     <div id="book-step-2" class="hidden">
                         <div class="flex items-center gap-2 mb-4">
-                            <button onclick="backToStep(1)" class="btn btn-outline btn-sm">
-                                < Back</button>
-                                    <h4 style="margin:0">Select Doctor (<span id="selected-dept"
-                                            class="text-primary"></span>)</h4>
+                            <button id="back-to-step-1" class="btn btn-outline btn-sm">
+                                &lt; Back
+                            </button>
+                            <h4 style="margin:0">Select Doctor (<span id="selected-dept" class="text-primary"></span>)</h4>
                         </div>
                         <div id="doctors-list" class="grid grid-cols-2 gap-2"></div>
                     </div>
@@ -159,307 +151,74 @@
                     <!-- Step 3: Slots -->
                     <div id="book-step-3" class="hidden">
                         <div class="flex items-center gap-2 mb-4">
-                            <button onclick="backToStep(2)" class="btn btn-outline btn-sm">
-                                < Back</button>
-                                    <h4 style="margin:0">Select Slot</h4>
+                            <button id="back-to-step-2" class="btn btn-outline btn-sm">
+                                &lt; Back
+                            </button>
+                            <h4 style="margin:0">Select Slot</h4>
                         </div>
-                        <input type="date" id="book-date" class="form-input mb-4" style="max-width: 200px;">
+                        <div class="form-group mb-4">
+                            <label class="block mb-2 text-sm text-muted" for="book-date">Choose Date</label>
+                            <input type="date" id="book-date" class="form-input" style="max-width: 200px;">
+                        </div>
                         <div id="slots-container" class="slots-grid"></div>
-                        <button id="confirm-book-btn" class="btn btn-primary w-full mt-4 hidden">Confirm
-                            Booking</button>
+                        <button id="confirm-book-btn" class="btn btn-primary w-full mt-4 hidden">Confirm Booking</button>
                     </div>
 
                 </div>
-            </div>
+            </section>
 
             <!-- 2. My Appointments -->
-            <div id="view-appointments" class="view-section hidden">
+            <section id="view-appointments" class="view-section hidden" aria-labelledby="heading-appointments">
                 <div class="flex justify-between items-center mb-4">
-                    <h2>My Appointments</h2>
+                    <h2 id="heading-appointments">My Appointments</h2>
                     <div class="flex gap-2">
                         <input type="date" id="filter-start" class="form-input"
-                            style="padding: 0.5rem; width: auto; margin:0">
+                            style="padding: 0.5rem; width: auto; margin:0" aria-label="Start date filter">
                         <input type="date" id="filter-end" class="form-input"
-                            style="padding: 0.5rem; width: auto; margin:0">
-                        <button onclick="loadAppointments()" class="btn btn-primary btn-sm">Filter</button>
+                            style="padding: 0.5rem; width: auto; margin:0" aria-label="End date filter">
+                        <button id="filter-date-btn" class="btn btn-primary btn-sm">Filter</button>
                     </div>
                 </div>
                 <!-- Search Reason -->
                 <div class="mb-4 flex gap-2">
                     <input type="text" id="filter-reason" class="form-input" placeholder="Search by reason..."
-                        style="margin-bottom:0">
-                    <button onclick="loadAppointments()" class="btn btn-outline">Search</button>
+                        style="margin-bottom:0" aria-label="Search by symptom reason">
+                    <button id="filter-reason-btn" class="btn btn-outline">Search</button>
                 </div>
 
                 <div id="appointments-list" class="flex flex-col gap-2"></div>
-            </div>
+            </section>
 
             <!-- 3. Medical Records -->
-            <div id="view-records" class="view-section hidden">
-                <h2 class="mb-4">Medical Records</h2>
+            <section id="view-records" class="view-section hidden" aria-labelledby="heading-records">
+                <h2 id="heading-records" class="mb-4">Medical Records</h2>
                 <div id="records-list" class="flex flex-col gap-2"></div>
-            </div>
+            </section>
 
             <!-- 4. Medicine -->
-            <div id="view-medicine" class="view-section hidden">
-                <h2 class="mb-4">My Medicine</h2>
+            <section id="view-medicine" class="view-section hidden" aria-labelledby="heading-medicine">
+                <h2 id="heading-medicine" class="mb-4">My Medicine</h2>
                 <div id="medicine-list" class="dept-grid"></div>
-            </div>
+            </section>
 
             <!-- 5. Reminders -->
-            <div id="view-reminders" class="view-section hidden">
-                <h2 class="mb-4">Follow-up Reminders</h2>
+            <section id="view-reminders" class="view-section hidden" aria-labelledby="heading-reminders">
+                <h2 id="heading-reminders" class="mb-4">Follow-up Reminders</h2>
                 <div id="reminders-list" class="flex flex-col gap-2"></div>
-            </div>
-
-        </div>
+            </section>
+        </main>
     </div>
-
-    <!-- Background Elements -->
-    <div class="hero-graphic"
-        style="position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 0; pointer-events: none; opacity: 0.6; transform: scale(1.5);">
-        <div class="graphic-circle" style="top: 20%; right: 10%;"></div>
-    </div>
-
-    <script src="js/app.js"></script>
-    <script>
-        App.checkAuth();
-        document.getElementById('welcome-msg').innerText = `Hello, ${App.state.user.name}`;
-
-        const roleBadge = document.getElementById('role-badge');
-        roleBadge.innerText = App.state.role.toUpperCase();
-        if (App.state.role === 'staff') roleBadge.className = 'status-badge status-Warning';
-
-        // Nav Logic
-        document.querySelectorAll('.menu-item').forEach(item => {
-            item.addEventListener('click', () => {
-                document.querySelectorAll('.menu-item').forEach(x => x.classList.remove('active'));
-                item.classList.add('active');
-                document.querySelectorAll('.view-section').forEach(x => x.classList.add('hidden'));
-                document.getElementById(item.dataset.view).classList.remove('hidden');
-
-                if (item.dataset.view === 'view-appointments') loadAppointments();
-                if (item.dataset.view === 'view-records') loadRecords();
-                if (item.dataset.view === 'view-medicine') loadMedicine();
-                if (item.dataset.view === 'view-reminders') loadReminders();
-            });
-        });
-
-        // --- BOOKING LOGIC ---
-        let booking = { dept: '', reason: '', doctor: null, date: null, time: null };
-
-        function backToStep(step) {
-            document.getElementById('book-step-1').classList.add('hidden');
-            document.getElementById('book-step-2').classList.add('hidden');
-            document.getElementById('book-step-3').classList.add('hidden');
-            document.getElementById(`book-step-${step}`).classList.remove('hidden');
-        }
-
-        window.selectDept = async (dept) => {
-            const reason = document.getElementById('symptom-input').value;
-            if (!reason) { alert('Please enter a reason first.'); return; }
-
-            booking.dept = dept;
-            booking.reason = reason;
-            document.getElementById('selected-dept').innerText = dept;
-
-            const doctors = await App.api(`/appointments/doctors?department=${dept}`);
-            const list = document.getElementById('doctors-list');
-            if (doctors.length === 0) { list.innerHTML = '<p class="text-muted col-span-2">No doctors found in this department.</p>'; }
-            else {
-                list.innerHTML = doctors.map(d => `
-                    <div class="card cursor-pointer hover:border-primary" onclick="selectDoctor(${d.id})">
-                        <h4 style="margin:0">Dr. ${d.name}</h4>
-                        <small class="text-muted">${d.specialty}</small>
-                    </div>
-                `).join('');
-            }
-
-            backToStep(2);
-        };
-
-        window.selectDoctor = (id) => {
-            booking.doctor = id;
-            document.getElementById('book-date').min = new Date().toISOString().split('T')[0];
-            document.getElementById('book-date').value = '';
-            document.getElementById('slots-container').innerHTML = '';
-            document.getElementById('confirm-book-btn').classList.add('hidden');
-            backToStep(3);
-        };
-
-        document.getElementById('book-date').addEventListener('change', async (e) => {
-            const date = e.target.value;
-            booking.date = date;
-            const slots = await App.api(`/appointments/slots?doctor_id=${booking.doctor}&date=${date}`);
-            const container = document.getElementById('slots-container');
-            if (slots.length === 0) container.innerHTML = '<p class="text-muted">No slots available for this date.</p>';
-            else {
-                container.innerHTML = slots.map(t => `<div class="slot" onclick="selectTime(this, '${t}')">${t}</div>`).join('');
-            }
-        });
-
-        window.selectTime = (el, time) => {
-            document.querySelectorAll('.slot').forEach(x => x.classList.remove('selected'));
-            el.classList.add('selected');
-            booking.time = time;
-            document.getElementById('confirm-book-btn').classList.remove('hidden');
-        };
-
-        document.getElementById('confirm-book-btn').addEventListener('click', async () => {
-            try {
-                await App.api('/appointments/book', 'POST', {
-                    doctor_id: booking.doctor, date: booking.date, time: booking.time, symptom: booking.reason
-                });
-                alert('Appointment Confirmed!');
-                window.location.reload();
-            } catch (e) { console.error(e); }
-        });
-
-        // --- MY APPOINTMENTS ---
-        async function loadAppointments() {
-            const start = document.getElementById('filter-start').value;
-            const end = document.getElementById('filter-end').value;
-            const reason = document.getElementById('filter-reason').value;
-
-            const list = document.getElementById('appointments-list');
-            list.innerHTML = '<p>Loading...</p>';
-
-            // Build Params
-            const params = new URLSearchParams();
-            if (start && end) {
-                params.append('filter', 'date');
-                params.append('start', start);
-                params.append('end', end);
-            }
-            if (reason) {
-                params.append('filter', 'reason');
-                params.append('q', reason);
-            }
-
-            const data = await App.api(`/appointments/my-appointments?${params.toString()}`);
-
-            if (!data || data.length === 0) { list.innerHTML = '<p class="text-muted">No appointments found.</p>'; return; }
-
-            list.innerHTML = data.map(a => `
-                <div class="card flex justify-between items-center mb-2">
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <h4 style="margin:0">${a.doctor_name}</h4>
-                            <span class="text-muted text-sm">(${a.department})</span>
-                        </div>
-                        <p class="text-muted text-sm mt-1">${formatDate(a.appointment_date)} @ <span class="text-primary">${a.appointment_time.substring(0, 5)}</span></p>
-                        <p class="text-xs text-muted">Reason: ${a.symptom_description}</p>
-                    </div>
-                    <div class="flex flex-col items-end gap-2">
-                        <span class="status-badge status-${a.status}">${a.status}</span>
-                        ${a.status === 'Completed' ? `<button onclick="viewRecord(${a.id})" class="btn btn-primary" style="padding: 0.25rem 0.75rem; font-size: 0.8rem">View Record</button>` : ''}
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // --- RECORDS ---
-        async function loadRecords() {
-            const list = document.getElementById('records-list');
-            const data = await App.api('/appointments/medical-records');
-            if (!data.length) { list.innerHTML = '<p>No records.</p>'; return; }
-
-            list.innerHTML = data.map(r => `
-                <div class="card">
-                     <p class="text-primary font-bold">${formatDate(r.appointment_date)} - Dr. ${r.doctor_name}</p>
-                     <p><strong>Diagnosis:</strong> ${r.diagnosis}</p>
-                     <p><strong>Advice:</strong> ${r.advice || '-'}</p>
-                     ${r.attached_reports ? `<p><strong>Reports:</strong> ${r.attached_reports}</p>` : ''}
-                     <div class="mt-2" style="background:rgba(255,255,255,0.03); padding:0.5rem; border-radius:4px;">
-                        <strong>Prescriptions:</strong>
-                        <ul class="pl-4 text-sm text-muted">
-                            ${r.prescriptions ? r.prescriptions.map(p => `<li>${p.medicine} (${p.dosage}) - ${p.frequency} for ${p.duration}</li>`).join('') : '<li>None</li>'}
-                        </ul>
-                     </div>
-                </div>
-            `).join('');
-        }
-
-        async function viewRecord(aptId) {
-            try {
-                const record = await App.api(`/appointments/${aptId}/record`);
-                const content = document.getElementById('record-modal-content');
-
-                let prescriptionsHtml = '<li>None</li>';
-                if (record.prescriptions && record.prescriptions.length > 0) {
-                    prescriptionsHtml = record.prescriptions.map(p =>
-                        `<li>${p.medicine} (${p.dosage}) - ${p.frequency} for ${p.duration}</li>`
-                    ).join('');
-                }
-
-                content.innerHTML = `
-                    <h3 class="mb-4 text-primary">Medical Record</h3>
-                    <p><strong>Diagnosis:</strong> ${record.diagnosis}</p>
-                    <p><strong>Advice:</strong> ${record.advice || '-'}</p>
-                    ${record.attached_reports ?
-                        (record.attached_reports.startsWith('data:image') ?
-                            `<img src="${record.attached_reports}" style="max-width:100%; border-radius:8px; margin-top:10px;">` :
-                            record.attached_reports.startsWith('data:application/pdf') ?
-                                `<a href="${record.attached_reports}" download="report.pdf" class="btn btn-outline btn-sm mt-2">Download Report PDF</a>` :
-                                `<p><strong>Reports:</strong> ${record.attached_reports}</p>`)
-                        : ''}
-                    <div class="mt-4" style="background:rgba(255,255,255,0.03); padding:1rem; border-radius:8px;">
-                        <strong>Prescriptions:</strong>
-                        <ul class="pl-4 mt-2 text-sm text-muted">
-                            ${prescriptionsHtml}
-                        </ul>
-                    </div>
-                `;
-                document.getElementById('record-modal').classList.remove('hidden');
-            } catch (e) {
-                alert('Record not found or error fetching details.');
-            }
-        }
-
-        // --- MEDICINE --- 
-        async function loadMedicine() {
-            const list = document.getElementById('medicine-list');
-            const data = await App.api('/appointments/my-medicine');
-            if (!data.length) { list.innerHTML = '<p>No active medicines.</p>'; return; }
-
-            list.innerHTML = data.map(m => `
-                <div class="card text-center">
-                    <h4 style="color:var(--accent); margin-bottom:0.5rem">${m.medicine_name}</h4>
-                    <span class="status-badge status-Completed">${m.dosage}</span>
-                    <p class="text-muted text-sm mt-2">${m.frequency}</p>
-                    <small class="text-muted block mt-1">For ${m.duration}</small>
-                </div>
-            `).join('');
-        }
-
-        // --- REMINDERS ---
-        async function loadReminders() {
-            const list = document.getElementById('reminders-list');
-            const data = await App.api('/appointments/reminders');
-            if (!data.length) list.innerHTML = '<p>No upcoming reminders.</p>';
-            else list.innerHTML = data.map(r => `
-                <div class="card border-l-4 border-warning" style="border-left: 4px solid #ffa502;">
-                    <h4 style="color:#ffa502">${formatDate(r.follow_up_date)}</h4>
-                    <p>Follow up with Dr. ${r.doctor_name}</p>
-                    <p class="text-sm italic">"${r.advice}"</p>
-                </div>
-            `).join('');
-        }
-
-        function formatDate(str) {
-            if (!str) return '';
-            return new Date(str).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-        }
-    </script>
 
     <!-- Record Modal -->
-    <div id="record-modal" class="modal hidden">
+    <div id="record-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="modal-content relative">
-            <button class="close-btn"
-                onclick="document.getElementById('record-modal').classList.add('hidden')">&times;</button>
+            <button id="record-modal-close" class="close-btn" aria-label="Close dialog">&times;</button>
             <div id="record-modal-content"></div>
         </div>
     </div>
+
+    <script src="js/app.js"></script>
+    <script src="js/dashboard_user.js"></script>
 </body>
 
 </html>

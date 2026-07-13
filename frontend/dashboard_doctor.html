@@ -7,316 +7,111 @@
     <title>Doctor Dashboard - KAPS MedTech</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
-    <style>
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(15, 17, 26, 0.95);
-            backdrop-filter: blur(10px);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-        }
-
-        .modal-content {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            padding: 2rem;
-            border-radius: 12px;
-            width: 90%;
-            max-width: 900px;
-            max-height: 95vh;
-            overflow-y: auto;
-            position: relative;
-        }
-    </style>
 </head>
 
 <body>
-    <nav>
-        <div class="container flex" style="justify-content: space-between; align-items: center;">
-            <div class="flex items-center gap-2">
-                <img src="img/logo.png" alt="Logo" style="height: 40px;">
-                <div class="brand">KAPS <span>MedTech</span></div>
+    <header>
+        <nav>
+            <div class="container flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <img src="img/logo.png" alt="KAPS MedTech logo" class="brand-logo">
+                    <div class="brand">KAPS <span>MedTech</span></div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="status-badge status-Booked">Doctor</span>
+                    <span id="welcome-msg" class="text-white" style="font-weight: 500;">Welcome</span>
+                    <button id="logoutBtn" class="btn btn-outline btn-sm" style="margin-left: 1rem;">Logout</button>
+                </div>
             </div>
-            <div class="flex items-center gap-2">
-                <span class="status-badge"
-                    style="background:rgba(46, 213, 115, 0.1); color:var(--accent);">Doctor</span>
-                <span id="welcome-msg" class="text-white" style="font-weight: 500;">Welcome</span>
-                <button id="logoutBtn" class="btn btn-outline"
-                    style="margin-left: 1rem; padding: 0.5rem 1rem;">Logout</button>
-            </div>
-        </div>
-    </nav>
+        </nav>
+    </header>
 
-    <div class="container mt-4">
-        <h2>Today's Appointments</h2>
+    <main class="container mt-4">
+        <h2>Patient Queue</h2>
         <div id="appointments-list" class="grid grid-cols-1 gap-4 mt-4"></div>
-    </div>
+    </main>
 
     <!-- Treatment Modal -->
-    <div id="treatment-modal" class="modal hidden">
-        <div class="modal-content">
-            <button onclick="closeModal()" class="close-btn">&times;</button>
-            <h2 class="mb-6 border-b border-border pb-2">Patient Treatment</h2>
+    <div id="treatment-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-content" style="max-width: 900px;">
+            <button id="modal-close-btn" class="close-btn" aria-label="Close dialog">&times;</button>
+            <h2 id="modal-title" class="mb-6 border-b border-border pb-2">Patient Treatment</h2>
 
-            <div class="grid grid-cols-2 gap-8">
+            <div class="grid grid-cols-2 gap-6">
                 <!-- Left: Patient Info & History -->
                 <div class="flex flex-col gap-4">
-                    <div class="card bg-dark p-4 border-l-4" style="border-left-color: var(--primary);">
+                    <section class="card" style="border-left: 4px solid var(--primary);" aria-label="Patient details">
                         <h3 id="p-name" class="mb-1">Patient Name</h3>
                         <p id="p-details" class="text-muted text-sm font-mono"></p>
-                    </div>
+                    </section>
 
-                    <div>
-                        <h4 class="mb-2 text-muted uppercase text-xs tracking-wider">Visit History</h4>
-                        <div id="p-history" class="custom-scroll"
-                            style="max-height: 400px; overflow-y: auto; padding-right: 0.5rem;">
-                        </div>
-                    </div>
+                    <section aria-labelledby="heading-history">
+                        <h4 id="heading-history" class="mb-2 text-muted uppercase text-xs tracking-wider">Visit History</h4>
+                        <div id="p-history" class="custom-scroll"></div>
+                    </section>
                 </div>
 
                 <!-- Right: Treatment Form -->
-                <div>
-                    <h4 class="mb-4 text-muted uppercase text-xs tracking-wider">Clinical Assessment</h4>
-                    <form id="treatment-form" onsubmit="submitTreatment(event)">
+                <section aria-labelledby="heading-assessment">
+                    <h4 id="heading-assessment" class="mb-4 text-muted uppercase text-xs tracking-wider">Clinical Assessment</h4>
+                    <form id="treatment-form">
                         <input type="hidden" id="apt-id">
 
                         <div class="form-group mb-4">
-                            <label class="block text-sm text-muted mb-1">Diagnosis</label>
+                            <label class="block text-sm text-muted mb-1" for="diagnosis">Diagnosis</label>
                             <input type="text" id="diagnosis" class="form-input" required
                                 placeholder="e.g. Viral Fever">
                         </div>
 
                         <div class="form-group mb-4">
-                            <label class="block text-sm text-muted mb-1">Advice / Instructions</label>
+                            <label class="block text-sm text-muted mb-1" for="advice">Advice / Instructions</label>
                             <textarea id="advice" rows="3" class="form-input"
                                 placeholder="Rest for 3 days..."></textarea>
                         </div>
 
                         <div class="form-group mb-4">
-                            <label class="block text-sm text-muted mb-1">Attached Reports (Image/PDF)</label>
+                            <label class="block text-sm text-muted mb-1" for="attached-reports">Attached Reports (Image/PDF)</label>
                             <input type="file" id="attached-reports" class="form-input"
                                 accept="image/*,application/pdf">
                         </div>
 
                         <div class="form-group mb-4">
-                            <label class="block text-sm text-muted mb-1">Follow-up Date</label>
+                            <label class="block text-sm text-muted mb-1" for="follow-up">Follow-up Date</label>
                             <input type="date" id="follow-up" class="form-input">
                         </div>
 
                         <div class="form-group mb-6">
                             <div class="flex justify-between items-end mb-2">
                                 <label class="text-sm text-muted">Prescriptions</label>
-                                <button type="button" onclick="addMedRow()" class="btn btn-outline btn-sm"
-                                    style="font-size: 0.7rem;">+ Add
-                                    Med</button>
+                                <button type="button" id="add-med-btn" class="btn btn-outline btn-sm"
+                                    style="font-size: 0.7rem;">+ Add Med</button>
                             </div>
                             <div id="med-rows" class="flex flex-col gap-2"></div>
                         </div>
 
-                        <div class="form-group mb-6 p-4 bg-dark rounded border border-dashed border-gray-700">
-                            <label class="text-xs text-accent uppercase tracking-wide mb-2 block">System Updates
-                                (Optional)</label>
+                        <div class="form-group mb-6 p-4 border border-dashed border-gray-700" style="background: rgba(255,255,255,0.01); border-radius: 8px;">
+                            <label class="text-xs text-primary uppercase tracking-wide mb-2 block">System Updates (Optional)</label>
                             <div class="grid grid-cols-2 gap-2">
-                                <input type="text" id="update-phone" class="form-input text-sm"
-                                    placeholder="New Phone Number">
-                                <input type="text" id="update-id" class="form-input text-sm"
-                                    placeholder="New ID/License">
+                                <div class="form-group">
+                                    <label class="hidden" for="update-phone">New Phone Number</label>
+                                    <input type="text" id="update-phone" class="form-input text-sm" placeholder="New Phone Number">
+                                </div>
+                                <div class="form-group">
+                                    <label class="hidden" for="update-id">New ID/License</label>
+                                    <input type="text" id="update-id" class="form-input text-sm" placeholder="New ID/License">
+                                </div>
                             </div>
                         </div>
 
                         <button type="submit" class="btn btn-primary w-full py-3">Complete Treatment &rarr;</button>
                     </form>
-                </div>
+                </section>
             </div>
         </div>
     </div>
 
     <script src="js/app.js"></script>
-    <script>
-        App.checkAuth();
-        // Fix duplicate Dr. title
-        const niceName = App.state.user.name.startsWith('Dr.') ? App.state.user.name : `Dr. ${App.state.user.name}`;
-        document.getElementById('welcome-msg').innerText = niceName;
-
-        async function loadAppointments() {
-            const list = document.getElementById('appointments-list');
-            list.innerHTML = '<p>Loading...</p>';
-            const data = await App.api('/doctor/today');
-
-            if (!data.length) {
-                list.innerHTML = `
-                    <div class="text-center p-8 text-muted border border-dashed border-gray-700 rounded-lg">
-                        <p class="text-lg">No active appointments for today.</p>
-                        <p class="text-sm">Enjoy your day, Doctor!</p>
-                    </div>`;
-                return;
-            }
-
-            // Enhanced Card Design
-            list.innerHTML = data.map(apt => `
-                <div class="card flex justify-between items-center p-6 hover:border-primary transition duration-200">
-                    <div class="flex items-center gap-6">
-                        <div class="bg-dark rounded-lg p-3 text-center min-w-[80px] border border-border">
-                            <h3 class="text-xl font-bold text-primary m-0">${apt.appointment_time.substring(0, 5)}</h3>
-                            <span class="text-xs text-muted">TODAY</span>
-                        </div>
-                        <div>
-                            <h3 class="text-xl font-semibold m-0 mb-1">${apt.patient_name}</h3>
-                            <div class="flex items-center gap-2">
-                                <span class="text-sm text-muted bg-dark px-2 py-0.5 rounded border border-border">Reason</span>
-                                <span class="text-base">${apt.symptom_description}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex gap-3">
-                        <button onclick="startTreatment(${apt.id}, ${apt.patient_id}, '${apt.patient_name}')" 
-                            class="btn btn-primary shadow-lg hover:shadow-primary/20">
-                            Start Treatment
-                        </button>
-                        <button onclick="cancelAppointment(${apt.id})" 
-                            class="btn btn-outline text-danger border-danger hover:bg-danger/10">
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-            `).join('');
-        }
-        loadAppointments();
-
-        window.cancelAppointment = async (id) => {
-            if (!confirm('Are you sure you want to cancel this appointment?')) return;
-            try {
-                await App.api('/doctor/cancel', 'POST', { appointment_id: id });
-                loadAppointments();
-            } catch (e) { console.error(e); }
-        };
-
-        // --- Treatment Modal Logic ---
-        window.startTreatment = async (aptId, patientId, patientName) => {
-            document.getElementById('treatment-modal').classList.remove('hidden');
-            document.getElementById('apt-id').value = aptId;
-            document.getElementById('p-name').innerText = patientName;
-
-            // Fetch Detail
-            const data = await App.api(`/doctor/patient/${patientId}`);
-            document.getElementById('p-details').innerText = `Phone: ${data.patient.phone || 'N/A'} | ID: ${data.patient.identifier || 'N/A'}`;
-
-            // History
-            const histCtx = document.getElementById('p-history');
-            if (!data.history.length) histCtx.innerHTML = '<p class="text-muted text-sm italic">No prior medical history found.</p>';
-            else histCtx.innerHTML = data.history.map(h => `
-                <div class="mb-3 p-3 bg-dark rounded border border-border hover:border-light transition">
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="text-xs text-primary font-bold">${new Date(h.appointment_date).toLocaleDateString()}</span>
-                    </div>
-                    <div class="font-bold text-sm mb-1">${h.diagnosis}</div>
-                    <div class="text-xs text-muted">${h.advice || 'No specific advice recorded.'}</div>
-                </div>
-            `).join('');
-
-            // Clear Form
-            document.getElementById('diagnosis').value = '';
-            document.getElementById('advice').value = '';
-            document.getElementById('attached-reports').value = '';
-            document.getElementById('follow-up').value = '';
-            document.getElementById('med-rows').innerHTML = '';
-            addMedRow(); // Add one row by default
-        };
-
-        window.closeModal = () => document.getElementById('treatment-modal').classList.add('hidden');
-
-        window.addMedRow = () => {
-            const div = document.createElement('div');
-            div.className = 'flex gap-2 mb-2';
-            div.innerHTML = `
-                <input type="text" placeholder="Medicine Name" class="form-input med-name" style="flex:2">
-                <input type="text" placeholder="Dose" class="form-input med-dose" style="flex:1">
-                <input type="text" placeholder="Freq" class="form-input med-freq" style="flex:1">
-                <input type="text" placeholder="Days" class="form-input med-dur" style="flex:1">
-            `;
-            document.getElementById('med-rows').appendChild(div);
-        };
-
-        // Base64 Helper
-        const toBase64 = file => new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = error => reject(error);
-        });
-
-        window.submitTreatment = async (e) => {
-            e.preventDefault();
-            const aptId = document.getElementById('apt-id').value;
-            const diagnosis = document.getElementById('diagnosis').value;
-            const advice = document.getElementById('advice').value;
-            const followUp = document.getElementById('follow-up').value;
-
-            // Handle Reports (File -> Base64)
-            let attached_reports = null;
-            const fileInput = document.getElementById('attached-reports');
-            if (fileInput.files.length > 0) {
-                const file = fileInput.files[0];
-                if (file.size > 2 * 1024 * 1024) { // 2MB Limit
-                    alert('File is too large! Please upload a file smaller than 2MB.');
-                    return;
-                }
-                try {
-                    attached_reports = await toBase64(file);
-                } catch (err) {
-                    console.error('Error converting file:', err);
-                    alert('Error processing file.');
-                    return;
-                }
-            } else {
-                // Check if user entered text (fallback/optional)
-                // attached_reports = document.getElementById('attached-reports').value; // Removed as type is file now
-            }
-
-            // Collect Meds
-            const meds = [];
-            document.querySelectorAll('#med-rows .flex').forEach(row => {
-                const name = row.querySelector('.med-name').value;
-                if (name) {
-                    meds.push({
-                        name,
-                        dosage: row.querySelector('.med-dose').value,
-                        freq: row.querySelector('.med-freq').value,
-                        duration: row.querySelector('.med-dur').value
-                    });
-                }
-            });
-
-            const updates = {
-                phone: document.getElementById('update-phone').value,
-                identifier: document.getElementById('update-id').value
-            };
-
-            try {
-                await App.api('/doctor/record', 'POST', {
-                    appointment_id: aptId,
-                    diagnosis,
-                    advice,
-                    attached_reports, // Now sending Base64 or null
-                    follow_up_date: followUp || null,
-                    prescriptions: meds,
-                    patient_updates: updates
-                });
-                alert('Treatment Completed Successfully!');
-                closeModal();
-                loadAppointments();
-            } catch (e) {
-                console.error(e);
-                alert('Failed to submit treatment.');
-            }
-        };
-    </script>
+    <script src="js/dashboard_doctor.js"></script>
 </body>
 
 </html>

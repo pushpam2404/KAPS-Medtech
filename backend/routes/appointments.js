@@ -27,8 +27,8 @@ router.get('/symptoms', async (req, res) => {
         const result = await db.query(queryText, params);
         res.json(result.rows);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: err.message });
+        console.error('[SYMPTOMS ERROR]', err.message);
+        res.status(500).json({ error: 'Failed to fetch symptoms' });
     }
 });
 
@@ -49,8 +49,8 @@ router.get('/doctors', authenticateToken, async (req, res) => {
         const result = await db.query(queryText, params);
         res.json(result.rows);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: err.message });
+        console.error('[DOCTORS ERROR]', err.message);
+        res.status(500).json({ error: 'Failed to fetch doctors' });
     }
 });
 
@@ -80,23 +80,39 @@ router.get('/slots', authenticateToken, async (req, res) => {
         }
         res.json(slots);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: err.message });
+        console.error('[SLOTS ERROR]', err.message);
+        res.status(500).json({ error: 'Failed to fetch available slots' });
     }
 });
 
 // POST /api/appointments/book
 router.post('/book', authenticateToken, async (req, res) => {
     const { doctor_id, date, time, symptom } = req.body;
+
+    // Validate required fields
+    if (!doctor_id || !date || !time) {
+        return res.status(400).json({ error: 'Missing required fields: doctor_id, date, time' });
+    }
+
     try {
+        // Check for slot conflict (race condition protection)
+        const conflict = await db.query(
+            `SELECT id FROM Appointments 
+             WHERE doctor_id = $1 AND appointment_date = $2 AND appointment_time = $3 AND status != 'Cancelled'`,
+            [doctor_id, date, time]
+        );
+        if (conflict.rows.length > 0) {
+            return res.status(409).json({ error: 'This time slot has already been booked' });
+        }
+
         await db.query(
             'INSERT INTO Appointments (patient_id, doctor_id, appointment_date, appointment_time, symptom_description) VALUES ($1, $2, $3, $4, $5)',
             [req.user.id, doctor_id, date, time, symptom]
         );
         res.status(201).json({ message: 'Appointment booked' });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: err.message });
+        console.error('[BOOK ERROR]', err.message);
+        res.status(500).json({ error: 'Failed to book appointment' });
     }
 });
 
@@ -130,8 +146,8 @@ router.get('/my-appointments', authenticateToken, async (req, res) => {
         const result = await db.query(sql, params);
         res.json(result.rows);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: err.message });
+        console.error('[APPOINTMENTS ERROR]', err.message);
+        res.status(500).json({ error: 'Failed to fetch appointments' });
     }
 });
 
@@ -152,14 +168,27 @@ router.get('/medical-records', authenticateToken, async (req, res) => {
         `, [req.user.id]);
         res.json(result.rows);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: err.message });
+        console.error('[RECORDS ERROR]', err.message);
+        res.status(500).json({ error: 'Failed to fetch medical records' });
     }
 });
 
-// GET /api/appointments/:id/record (NEW ENDPOINT)
+// GET /api/appointments/:id/record
 router.get('/:id/record', authenticateToken, async (req, res) => {
     try {
+        // Verify ownership: patient or treating doctor
+        const aptCheck = await db.query(
+            `SELECT a.patient_id, d.user_id as doctor_user_id
+             FROM Appointments a
+             JOIN Doctors d ON a.doctor_id = d.id
+             WHERE a.id = $1`, [req.params.id]
+        );
+        if (aptCheck.rows.length === 0) return res.status(404).json({ error: 'Appointment not found' });
+        const apt = aptCheck.rows[0];
+        if (apt.patient_id !== req.user.id && apt.doctor_user_id !== req.user.id) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
         const result = await db.query(`
             SELECT mr.diagnosis, mr.advice, mr.follow_up_date, mr.attached_reports,
                    (SELECT json_agg(json_build_object('medicine', p.medicine_name, 'dosage', p.dosage, 'frequency', p.frequency, 'duration', p.duration)) 
@@ -172,7 +201,7 @@ router.get('/:id/record', authenticateToken, async (req, res) => {
         res.json(result.rows[0]);
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Failed to fetch record' });
     }
 });
 
@@ -203,8 +232,8 @@ router.get('/my-medicine', authenticateToken, async (req, res) => {
 
         res.json(activeMeds);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: err.message });
+        console.error('[MEDICINE ERROR]', err.message);
+        res.status(500).json({ error: 'Failed to fetch medicines' });
     }
 });
 
@@ -222,8 +251,8 @@ router.get('/reminders', authenticateToken, async (req, res) => {
         `, [req.user.id]);
         res.json(result.rows);
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: err.message });
+        console.error('[REMINDERS ERROR]', err.message);
+        res.status(500).json({ error: 'Failed to fetch reminders' });
     }
 });
 
@@ -235,6 +264,11 @@ router.put('/:id/reschedule', authenticateToken, async (req, res) => {
     try {
         const apt = await db.query('SELECT * FROM Appointments WHERE id = $1', [id]);
         if (apt.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+
+        // Verify ownership
+        if (apt.rows[0].patient_id !== req.user.id) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
 
         if (apt.rows[0].status !== 'Booked') {
             return res.status(400).json({ error: 'Cannot reschedule completed/cancelled appointment' });
@@ -248,7 +282,7 @@ router.put('/:id/reschedule', authenticateToken, async (req, res) => {
 
     } catch (err) {
         console.error(err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ error: 'Failed to reschedule appointment' });
     }
 });
 

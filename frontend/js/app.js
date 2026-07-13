@@ -47,9 +47,26 @@ const App = {
             return data;
         } catch (err) {
             console.error(err);
-            alert(err.error || 'Something went wrong');
+            App.showToast(err.error || 'Something went wrong', 'error');
             throw err;
         }
+    },
+
+    // Toast notification system
+    showToast: (message, type = 'info') => {
+        const existing = document.querySelector('.toast');
+        if (existing) existing.remove();
+
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = message;
+        document.body.appendChild(toast);
+
+        requestAnimationFrame(() => toast.classList.add('toast-visible'));
+        setTimeout(() => {
+            toast.classList.remove('toast-visible');
+            setTimeout(() => toast.remove(), 300);
+        }, 3500);
     },
 
     login: (token, role, user) => {

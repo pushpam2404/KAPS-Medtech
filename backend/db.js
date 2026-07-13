@@ -1,13 +1,16 @@
 const { Pool } = require('pg');
-const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+
+const isProduction = process.env.NODE_ENV === 'production';
+const hasNeonUrl = process.env.DATABASE_URL && process.env.DATABASE_URL.includes('neon.tech');
+const hasSupabaseUrl = process.env.DATABASE_URL && (process.env.DATABASE_URL.includes('supabase.co') || process.env.DATABASE_URL.includes('supabase.com'));
+const sslConfig = isProduction || hasNeonUrl || hasSupabaseUrl || process.env.DB_SSL === 'true'
+    ? { rejectUnauthorized: false }
+    : false;
 
 // Create the connection pool
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false // Required for NeonDB/AWS RDS
-    }
+    ssl: sslConfig
 });
 
 module.exports = {

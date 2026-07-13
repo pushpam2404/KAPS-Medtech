@@ -7,125 +7,17 @@
     <title>Welcome - KAPS MedTech</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
-    <style>
-        body {
-            background-color: var(--bg-dark);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0;
-            overflow: hidden;
-        }
-
-        .split-layout {
-            display: flex;
-            width: 100%;
-            height: 100vh;
-        }
-
-        .hero-left {
-            flex: 1;
-            padding: 5rem;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            background: radial-gradient(circle at top left, rgba(0, 206, 201, 0.1), transparent 40%);
-            position: relative;
-        }
-
-        .hero-right {
-            flex: 0.8;
-            background: var(--bg-card);
-            border-left: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding: 4rem;
-            max-width: 600px;
-        }
-
-        .circle-accent {
-            position: absolute;
-            width: 400px;
-            height: 400px;
-            background: var(--accent);
-            filter: blur(120px);
-            opacity: 0.1;
-            border-radius: 50%;
-            top: -100px;
-            left: -100px;
-            z-index: 0;
-        }
-
-        .tab-btn {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            padding: 1rem;
-            cursor: pointer;
-            font-weight: 600;
-            border-bottom: 2px solid transparent;
-            flex: 1;
-            transition: 0.3s;
-            font-size: 1rem;
-        }
-
-        .tab-btn.active {
-            color: var(--primary);
-            border-bottom-color: var(--primary);
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 1rem;
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            color: white;
-            margin-bottom: 1rem;
-            font-size: 1rem;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
-
-        .role-card {
-            border: 1px solid var(--border);
-            padding: 1rem;
-            border-radius: 8px;
-            text-align: center;
-            cursor: pointer;
-            transition: 0.2s;
-            background: rgba(255, 255, 255, 0.03);
-            font-weight: 500;
-        }
-
-        .role-card:hover {
-            border-color: var(--primary);
-            background: rgba(0, 206, 201, 0.1);
-        }
-
-        .role-card.active {
-            border-color: var(--primary);
-            background: var(--primary);
-            color: black;
-            font-weight: 700;
-        }
-    </style>
 </head>
 
 <body>
 
-    <div class="split-layout">
+    <main class="split-layout">
         <!-- Left: Branding -->
-        <div class="hero-left">
+        <section class="hero-left" aria-label="Branding">
             <div class="circle-accent"></div>
 
             <div class="flex items-center gap-3 mb-6" style="z-index: 1;">
-                <img src="img/logo.png" alt="" style="height: 60px;">
+                <img src="img/logo.png" alt="KAPS MedTech logo" style="height: 60px;">
                 <h1 style="font-size: 3rem; margin:0; letter-spacing: -1px;">KAPS <span
                         style="color:var(--primary)">MedTech</span></h1>
             </div>
@@ -138,26 +30,26 @@
                 Skip the lines. Get instant access to doctors, manage prescriptions, and track your wellness journey—all
                 from one secure dashboard.
             </p>
-        </div>
+        </section>
 
         <!-- Right: Login Form -->
-        <div class="hero-right">
+        <section class="hero-right" aria-label="Account Access">
             <h2 class="text-center mb-6">Welcome Back</h2>
 
             <!-- Tabs -->
-            <div class="flex mb-8 border-b border-border">
-                <button class="tab-btn active" onclick="switchTab('login')">Login</button>
-                <button class="tab-btn" onclick="switchTab('signup')">Sign Up</button>
+            <div class="flex mb-8 border-b border-border" role="tablist" aria-label="Auth modes">
+                <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="login-form">Login</button>
+                <button class="tab-btn" role="tab" aria-selected="false" aria-controls="signup-form">Sign Up</button>
             </div>
 
             <!-- Login Form -->
             <form id="login-form">
                 <div class="mb-2">
-                    <label class="block text-sm text-muted mb-2">Email Address</label>
+                    <label class="block text-sm text-muted mb-2" for="l-email">Email Address</label>
                     <input type="email" id="l-email" class="form-input" placeholder="student@university.edu" required>
                 </div>
                 <div class="mb-4">
-                    <label class="block text-sm text-muted mb-2">Password</label>
+                    <label class="block text-sm text-muted mb-2" for="l-password">Password</label>
                     <input type="password" id="l-password" class="form-input" placeholder="••••••••" required>
                 </div>
                 <button type="submit" class="btn btn-primary w-full" style="padding: 1rem;">Access Account
@@ -168,36 +60,36 @@
             <form id="signup-form" class="hidden">
                 <!-- Role Selection -->
                 <label class="block text-sm text-muted mb-2">I am a...</label>
-                <div class="grid grid-cols-3 gap-2 mb-4">
-                    <div class="role-card active" onclick="selectRole('student')" id="role-student">
+                <div class="grid grid-cols-3 gap-2 mb-4" role="group" aria-label="Choose registration role">
+                    <button type="button" class="role-card active" id="role-student">
                         Student
-                    </div>
-                    <div class="role-card" onclick="selectRole('staff')" id="role-staff">
+                    </button>
+                    <button type="button" class="role-card" id="role-staff">
                         Staff
-                    </div>
-                    <div class="role-card" onclick="selectRole('doctor')" id="role-doctor">
+                    </button>
+                    <button type="button" class="role-card" id="role-doctor">
                         Doctor
-                    </div>
+                    </button>
                 </div>
                 <input type="hidden" id="s-role" value="student">
 
                 <div class="mb-2">
-                    <label class="block text-sm text-muted mb-2">Full Name</label>
+                    <label class="block text-sm text-muted mb-2" for="s-name">Full Name</label>
                     <input type="text" id="s-name" class="form-input" placeholder="John Doe" required>
                 </div>
                 <div class="mb-2">
-                    <label class="block text-sm text-muted mb-2">Email Address</label>
+                    <label class="block text-sm text-muted mb-2" for="s-email">Email Address</label>
                     <input type="email" id="s-email" class="form-input" placeholder="student@university.edu" required>
                 </div>
                 <div class="mb-2">
-                    <label class="block text-sm text-muted mb-2">Password</label>
+                    <label class="block text-sm text-muted mb-2" for="s-password">Password</label>
                     <input type="password" id="s-password" class="form-input" placeholder="••••••••" required>
                 </div>
 
                 <!-- Doctor Specific Fields -->
                 <div id="doctor-fields" class="hidden">
                     <div class="mb-2">
-                        <label class="block text-sm text-muted mb-2">Department</label>
+                        <label class="block text-sm text-muted mb-2" for="s-dept">Department</label>
                         <select id="s-dept" class="form-input">
                             <option value="General Medicine">General Medicine</option>
                             <option value="Cardiology">Cardiology</option>
@@ -215,7 +107,7 @@
                         </select>
                     </div>
                     <div class="mb-2">
-                        <label class="block text-sm text-muted mb-2">Specialty</label>
+                        <label class="block text-sm text-muted mb-2" for="s-specialty">Specialty</label>
                         <input type="text" id="s-specialty" class="form-input" placeholder="e.g. Senior Surgeon">
                     </div>
                 </div>
@@ -223,72 +115,11 @@
                 <button type="submit" class="btn btn-primary w-full" style="padding: 1rem;">Create Account
                     &rarr;</button>
             </form>
-        </div>
-    </div>
+        </section>
+    </main>
 
     <script src="js/app.js"></script>
-    <script>
-        function switchTab(tab) {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active');
-
-            if (tab === 'login') {
-                document.getElementById('login-form').classList.remove('hidden');
-                document.getElementById('signup-form').classList.add('hidden');
-            } else {
-                document.getElementById('login-form').classList.add('hidden');
-                document.getElementById('signup-form').classList.remove('hidden');
-            }
-        }
-
-        function selectRole(role) {
-            document.querySelectorAll('.role-card').forEach(c => c.classList.remove('active'));
-            document.getElementById(`role-${role}`).classList.add('active');
-            document.getElementById('s-role').value = role;
-
-            if (role === 'doctor') {
-                document.getElementById('doctor-fields').classList.remove('hidden');
-            } else {
-                document.getElementById('doctor-fields').classList.add('hidden');
-            }
-        }
-
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('l-email').value;
-            const password = document.getElementById('l-password').value;
-
-            try {
-                const res = await App.api('/auth/login', 'POST', { email, password });
-                if (res) App.login(res.token, res.role, { name: res.name, id: res.id });
-            } catch (err) {
-                // Assert handled by api wrapper
-            }
-        });
-
-        document.getElementById('signup-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const name = document.getElementById('s-name').value;
-            const email = document.getElementById('s-email').value;
-            const password = document.getElementById('s-password').value;
-            const role = document.getElementById('s-role').value;
-
-            let payload = { name, email, password, role };
-
-            if (role === 'doctor') {
-                payload.department = document.getElementById('s-dept').value;
-                payload.specialty = document.getElementById('s-specialty').value;
-            }
-
-            try {
-                await App.api('/auth/signup', 'POST', payload);
-                alert('Account created! Please login.');
-                switchTab('login');
-            } catch (err) {
-                // Assert handled by api wrapper
-            }
-        });
-    </script>
+    <script src="js/login.js"></script>
 </body>
 
 </html>
