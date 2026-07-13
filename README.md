@@ -7,9 +7,7 @@ A secure, premium, and highly responsive healthcare management system connecting
 
 ## 🌐 Live Application
 You can access the deployed application directly here:  
-👉 **[Live App Link (Click Here)](https://kaps-medtech.vercel.app)** 🔗  
-*(Or replace this with your actual Vercel subdomain e.g., `https://your-custom-subdomain.vercel.app` after deploying)*
-
+👉 **[Live App Link (Click Here)](https://kaps-medtech.vercel.app/)** 🔗  
 ---
 
 ## 📖 System Overview
