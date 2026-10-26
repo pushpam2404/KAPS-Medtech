@@ -1,93 +1,57 @@
-# KAPS MedTech — System Architecture
+# Architecture
 
-This document describes the architectural layout, component interactions, security model, and structural organization of the **KAPS MedTech** application.
-
----
-
-## 1. Architectural Overview
-
-KAPS MedTech is built on a decoupled full-stack model served from a single Node.js runtime. 
+One Node process serves both the API and the static frontend.
 
 ```
-               [ Client Side ]                 |             [ Server Side ]
-                                               |
-  +-----------------------------------------+  |  +------------------------------------+
-  |              Web Browser                |  |  |           Express Engine           |
-  |                                         |  |  |                                    |
-  |  +-----------------------------------+  |  |  |  +------------------------------+  |
-  |  |            HTML / CSS             |  |  |  |  |     Rate Limiter Middleware    |  |
-  |  +-----------------------------------+  |  |  |  +---------------+--------------+  |
-  |                      |                  |  |  |                  |                 |
-  |  +-------------------+---------------+  |  |  |  +---------------+--------------+  |
-  |  |           Vanilla JS              |  |  |  |  |     Authentication Guard     |  |
-  |  |    (dashboard_user, app, login)   |  |  |  |  +---------------+--------------+  |
-  |  +-------------------+---------------+  |  |  |                  |                 |
-  +----------------------|------------------+  |  |  +---------------+--------------+  |
-                         |                     |  |  |          Router Groups         |  |
-                         | (Fetch API / JSON)  |  |  |     (auth, appts, doctor)    |  |
-                         +----------------------> |  +---------------+--------------+  |
-                                               |  |                  |                 |
-                                               |  |  +---------------+--------------+  |
-                                               |  |  |   Centralized Error Handler  |  |
-                                               |  |  +---------------+--------------+  |
-                                               |  +------------------|-----------------+
-                                               |                     | (Pool / SSL)
-                                               |                     v
-                                               |  +------------------------------------+
-                                               |  |             PostgreSQL             |
-                                               |  |          (Neon Serverless)         |
-                                               |  +------------------------------------+
+browser (plain HTML, CSS, JS)
+   |  fetch /api/...  with a bearer token
+   v
+Express 5  ->  security headers -> rate limit (auth only) -> routes -> error handler
+   |
+   v
+pg Pool  ->  PostgreSQL
 ```
 
-The system separates concerns across three key modules:
-- **Presentation Layer (Frontend)**: Standard semantic HTML, unified dark theme variables, page-specific modules extracted to clean JS files.
-- **Service Layer (Backend)**: Express API routes parsing parameters, enforcing rate limits, parsing JSON payloads up to 5MB, checking resource scopes, and delegating DB actions.
-- **Data Persistence Layer (Database)**: Postgres tables carrying triggers, unique index constraints, and cascading rules.
+On Vercel the same app runs as one serverless function (`vercel.json` sends every path to `backend/server.js`).
 
----
-
-## 2. Frontend Structure & Design Tokens
-
-The frontend uses raw, compilation-free resources for immediate browser execution, styled with a modernized dark theme design system in `frontend/css/style.css`.
-
-### UI Design Tokens
-- **Core Dark Tone**: `#090a0f` (rich deep indigo-black)
-- **Primary Accent**: `#00cec9` (clinical bright turquoise)
-- **Secondary Tone**: `#3b82f6` (trustworthy slate-blue)
-- **Card Background**: `#12141c` (sleek elevation)
-- **Border Guidelines**: `#222533` (subtle separating strokes)
-
-### Javascript Organization
-- [app.js](file:///Users/pushpam/Desktop/kaps/KAPS_MedTech/frontend/js/app.js): Stores local variables (`token`, `role`, `user`), exposes a standardized wrapper for `fetch` api calls, validates 401/403 unauthorized tokens, handles session clearing on logout.
-- [login.js](file:///Users/pushpam/Desktop/kaps/KAPS_MedTech/frontend/js/login.js): Handles Tab switching, Role card selection, forms validation, and loading indicators for the welcome page.
-- [dashboard_user.js](file:///Users/pushpam/Desktop/kaps/KAPS_MedTech/frontend/js/dashboard_user.js): Handles symptom collection, step-by-step booking steps, appointments filtration, records preview modal, active medicine calculations, and reminders.
-- [dashboard_doctor.js](file:///Users/pushpam/Desktop/kaps/KAPS_MedTech/frontend/js/dashboard_doctor.js): Handles daily appointments queuing, visit history parsing, clinical reports upload, and multi-row prescription records submission.
-
----
-
-## 3. Backend Routes and Core Middleware
-
-The backend application is orchestrated in [server.js](file:///Users/pushpam/Desktop/kaps/KAPS_MedTech/backend/server.js):
+## Layout
 
 ```
-  Request --> [CORS Handler] --> [Rate Limiter] --> [JSON parser (5MB)] --> [Routes] --> [DB Pool]
-                                                                                |
-                                                                       Exception (Pass to Next)
-                                                                                |
-                                                                                v
-                                                                    [ErrorHandler Middleware]
+backend/
+  server.js        app setup; exports the app so tests can start it on any port
+  db.js            pg pool, DATE columns returned as strings
+  schema.sql       tables, indexes, demo doctors and symptoms
+  init_db.js       loads schema.sql
+  routes/          auth, appointments (patients), doctor
+  middleware/      JWT check, doctor-only check, rate limiter, error handler
+  lib/clinic.js    slots, durations, symptom matching (no database)
+  lib/validate.js  input checks (no database)
+frontend/          index.html, dashboard_user.html, dashboard_doctor.html, css/, js/
+test/unit          tests for lib/
+test/integration   API tests against a real PostgreSQL
 ```
 
-### Core Middlewares
-- **auth.js (authenticateToken)**: Verifies the JWT Bearer token inside the `Authorization` header. Decodes token payloads to bind `{ id, role, name }` to the `req.user` context.
-- **rateLimiter.js (rateLimiter)**: Uses an IP-based Map registry tracking timestamp limits. Restricts auth actions (signup/login) to prevent credential stuffing.
-- **errorHandler.js (errorHandler)**: Captures database constraints, routing errors, and custom exceptions. Prevents SQL error code leakage by mapping server exceptions to generic responses while dumping stack frames inside local debug logs.
+## Data
 
----
+Six tables: `Users`, `Doctors` (one per doctor user), `Symptoms` (name to department), `Appointments`, `MedicalRecords` (one per completed appointment) and `Prescriptions`.
 
-## 4. Security Architecture
+`Appointments` has a partial unique index on `(doctor_id, appointment_date, appointment_time) WHERE status <> 'Cancelled'`. The booking route does not check first and then insert; it inserts and turns the unique violation into a 409. That is the only approach that holds when two requests arrive together, and `test/integration/api.test.js` fires four at once to check it.
 
-- **Context Isolation**: No direct database client calls from Javascript. Database is fully shielded behind Express routers.
-- **JWT Authorization**: Encrypted payloads carrying expiration thresholds. Falling back to default keys is blocked by startup assertion script.
-- **SQL Injection Prevention**: Parameterized queries using positional variables (`$1`, `$2`) sanitize input inputs.
-- **Cross-site Scripting (XSS)**: Input validation restricts raw script payloads from being saved to the database. Text content is rendered using secure browser nodes (`textContent`, `innerText`) rather than insecure templates.
+Reports are stored as base64 text in `MedicalRecords.attached_reports`. That is easy but wasteful; object storage would be the next step.
+
+## Access rules
+
+- Patients see only their own appointments, records and medicines.
+- A doctor sees a patient only after that patient has booked with them, and can complete or cancel only their own booked appointments. The record route locks the appointment row so a visit cannot be completed twice.
+- Doctor accounts cannot be self-registered unless the server has `DOCTOR_SIGNUP_CODE` set. The seeded doctors in `schema.sql` exist so a fresh database works without it.
+
+## Frontend
+
+No framework or build step. Every string from the API goes through `App.esc()` before it is placed in an `innerHTML` template, and the server sends a Content-Security-Policy that blocks inline scripts and styles as a second line of defence. The login token lives in `localStorage`, so an XSS bug would expose it; httpOnly cookies would be the stronger design.
+
+## Known limits
+
+- The rate limiter keeps counts in memory, so on serverless hosting each warm instance counts on its own.
+- `db.js` connects to hosted databases with `rejectUnauthorized: false`.
+- Slots are fixed (09:00 to 17:00 in half hours for every doctor); the `availability_*` columns in `Doctors` are not used.
+- Dates compare against the database server's clock with one day of slack, since users and the server can be in different timezones.
