@@ -1,125 +1,114 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome - KAPS MedTech</title>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Campus clinic appointments for students, staff and doctors. A student project with demo data.">
+    <meta name="color-scheme" content="light dark">
+    <title>Sign in - KAPS MedTech</title>
+    <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
+<body class="auth-page">
+    <a class="skip-link" href="#auth-main">Skip to sign in</a>
 
-<body>
-
-    <main class="split-layout">
-        <!-- Left: Branding -->
-        <section class="hero-left" aria-label="Branding">
-            <div class="circle-accent"></div>
-
-            <div class="flex items-center gap-3 mb-6" style="z-index: 1;">
-                <img src="img/logo.png" alt="KAPS MedTech logo" style="height: 60px;">
-                <h1 style="font-size: 3rem; margin:0; letter-spacing: -1px;">KAPS <span
-                        style="color:var(--primary)">MedTech</span></h1>
+    <div class="auth-layout">
+        <aside class="auth-panel">
+            <div class="brand">
+                <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5 4.5 6v8.2c0 7.3 4.6 12.4 11.5 15.3 6.9-2.9 11.5-8 11.5-15.3V6z" fill="currentColor"/><path class="pulse" d="M7 16.5h4.6l2.2-5.6 3.6 10.4 2.4-6.2 1.2 1.4H25" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span class="brand-name">KAPS MedTech</span>
             </div>
 
-            <h2 style="font-size: 3.5rem; line-height: 1.1; margin-bottom: 1.5rem; z-index: 1;">
-                Next Level <br>
-                <span class="text-primary">Health Support.</span>
-            </h2>
-            <p class="text-muted" style="font-size: 1.25rem; max-width: 550px; line-height: 1.6; z-index: 1;">
-                Skip the lines. Get instant access to doctors, manage prescriptions, and track your wellness journey—all
-                from one secure dashboard.
-            </p>
-        </section>
+            <h1 class="auth-title">Book a visit with a campus doctor.</h1>
+            <p class="auth-lede">Choose a reason, a department and a half-hour slot. After the visit, your prescriptions and follow-up date show up in your account.</p>
 
-        <!-- Right: Login Form -->
-        <section class="hero-right" aria-label="Account Access">
-            <h2 class="text-center mb-6">Welcome Back</h2>
-
-            <!-- Tabs -->
-            <div class="flex mb-8 border-b border-border" role="tablist" aria-label="Auth modes">
-                <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="login-form">Login</button>
-                <button class="tab-btn" role="tab" aria-selected="false" aria-controls="signup-form">Sign Up</button>
+            <div class="ledger" aria-hidden="true">
+                <span class="ledger-slot" data-state="open">09:00</span>
+                <span class="ledger-slot" data-state="taken">09:30</span>
+                <span class="ledger-slot" data-state="taken">10:00</span>
+                <span class="ledger-slot" data-state="open">10:30</span>
+                <span class="ledger-slot" data-state="open">11:00</span>
+                <span class="ledger-slot" data-state="yours">11:30</span>
+                <span class="ledger-slot" data-state="taken">12:00</span>
+                <span class="ledger-slot" data-state="open">12:30</span>
             </div>
 
-            <!-- Login Form -->
-            <form id="login-form">
-                <div class="mb-2">
-                    <label class="block text-sm text-muted mb-2" for="l-email">Email Address</label>
-                    <input type="email" id="l-email" class="form-input" placeholder="student@university.edu" required>
-                </div>
-                <div class="mb-4">
-                    <label class="block text-sm text-muted mb-2" for="l-password">Password</label>
-                    <input type="password" id="l-password" class="form-input" placeholder="••••••••" required>
-                </div>
-                <button type="submit" class="btn btn-primary w-full" style="padding: 1rem;">Access Account
-                    &rarr;</button>
-            </form>
+            <p class="auth-note">Student project with demo data. It does not give medical advice and is not a medical device. In an emergency, contact your local emergency services.</p>
+        </aside>
 
-            <!-- Signup Form -->
-            <form id="signup-form" class="hidden">
-                <!-- Role Selection -->
-                <label class="block text-sm text-muted mb-2">I am a...</label>
-                <div class="grid grid-cols-3 gap-2 mb-4" role="group" aria-label="Choose registration role">
-                    <button type="button" class="role-card active" id="role-student">
-                        Student
-                    </button>
-                    <button type="button" class="role-card" id="role-staff">
-                        Staff
-                    </button>
-                    <button type="button" class="role-card" id="role-doctor">
-                        Doctor
-                    </button>
-                </div>
-                <input type="hidden" id="s-role" value="student">
-
-                <div class="mb-2">
-                    <label class="block text-sm text-muted mb-2" for="s-name">Full Name</label>
-                    <input type="text" id="s-name" class="form-input" placeholder="John Doe" required>
-                </div>
-                <div class="mb-2">
-                    <label class="block text-sm text-muted mb-2" for="s-email">Email Address</label>
-                    <input type="email" id="s-email" class="form-input" placeholder="student@university.edu" required>
-                </div>
-                <div class="mb-2">
-                    <label class="block text-sm text-muted mb-2" for="s-password">Password</label>
-                    <input type="password" id="s-password" class="form-input" placeholder="••••••••" required>
+        <main class="auth-main" id="auth-main">
+            <div class="auth-card">
+                <div class="tabs" role="tablist" aria-label="Account">
+                    <button type="button" class="tab" role="tab" id="tab-login" aria-selected="true" aria-controls="login-form">Sign in</button>
+                    <button type="button" class="tab" role="tab" id="tab-signup" aria-selected="false" aria-controls="signup-form" tabindex="-1">Create account</button>
                 </div>
 
-                <!-- Doctor Specific Fields -->
-                <div id="doctor-fields" class="hidden">
-                    <div class="mb-2">
-                        <label class="block text-sm text-muted mb-2" for="s-dept">Department</label>
-                        <select id="s-dept" class="form-input">
-                            <option value="General Medicine">General Medicine</option>
-                            <option value="Cardiology">Cardiology</option>
-                            <option value="Pulmonology">Pulmonology</option>
-                            <option value="Gastroenterology">Gastroenterology</option>
-                            <option value="Neurology">Neurology</option>
-                            <option value="Orthopedics">Orthopedics</option>
-                            <option value="Dermatology">Dermatology</option>
-                            <option value="Psychiatry">Psychiatry</option>
-                            <option value="ENT">ENT</option>
-                            <option value="Ophthalmology">Ophthalmology</option>
-                            <option value="Endocrinology">Endocrinology</option>
-                            <option value="Nephrology">Nephrology</option>
-                            <option value="Dentistry">Dentistry</option>
-                        </select>
+                <form id="login-form" role="tabpanel" aria-labelledby="tab-login" novalidate>
+                    <h2 class="form-title">Sign in</h2>
+                    <div class="field">
+                        <label for="l-email">Email</label>
+                        <input type="email" id="l-email" class="input" autocomplete="username" required>
                     </div>
-                    <div class="mb-2">
-                        <label class="block text-sm text-muted mb-2" for="s-specialty">Specialty</label>
-                        <input type="text" id="s-specialty" class="form-input" placeholder="e.g. Senior Surgeon">
+                    <div class="field">
+                        <label for="l-password">Password</label>
+                        <input type="password" id="l-password" class="input" autocomplete="current-password" required>
                     </div>
-                </div>
+                    <p class="form-error" id="login-error" role="alert" hidden></p>
+                    <button type="submit" class="btn btn-primary btn-block">Sign in</button>
+                </form>
 
-                <button type="submit" class="btn btn-primary w-full" style="padding: 1rem;">Create Account
-                    &rarr;</button>
-            </form>
-        </section>
-    </main>
+                <form id="signup-form" role="tabpanel" aria-labelledby="tab-signup" novalidate hidden>
+                    <h2 class="form-title">Create an account</h2>
+                    <fieldset class="segmented">
+                        <legend>I am a</legend>
+                        <label><input type="radio" name="role" value="student" checked><span>Student</span></label>
+                        <label><input type="radio" name="role" value="staff"><span>Staff</span></label>
+                        <label><input type="radio" name="role" value="doctor"><span>Doctor</span></label>
+                    </fieldset>
+
+                    <div class="field">
+                        <label for="s-name">Full name</label>
+                        <input type="text" id="s-name" class="input" autocomplete="name" maxlength="100" required>
+                    </div>
+                    <div class="field">
+                        <label for="s-email">Email</label>
+                        <input type="email" id="s-email" class="input" autocomplete="email" maxlength="100" required>
+                    </div>
+                    <div class="field">
+                        <label for="s-password">Password</label>
+                        <input type="password" id="s-password" class="input" autocomplete="new-password" minlength="8" maxlength="72" aria-describedby="s-password-hint" required>
+                        <p class="hint" id="s-password-hint">At least 8 characters.</p>
+                    </div>
+
+                    <div id="doctor-fields" hidden>
+                        <div class="field">
+                            <label for="s-dept">Department</label>
+                            <select id="s-dept" class="input"></select>
+                        </div>
+                        <div class="field">
+                            <label for="s-specialty">Specialty</label>
+                            <input type="text" id="s-specialty" class="input" maxlength="100">
+                        </div>
+                        <div class="field">
+                            <label for="s-code">Registration code</label>
+                            <input type="password" id="s-code" class="input" autocomplete="off" aria-describedby="s-code-hint">
+                            <p class="hint" id="s-code-hint">Doctor accounts are invitation only. Ask the person who runs this server for the code.</p>
+                        </div>
+                    </div>
+
+                    <p class="form-error" id="signup-error" role="alert" hidden></p>
+                    <button type="submit" class="btn btn-primary btn-block">Create account</button>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
 
     <script src="js/app.js"></script>
     <script src="js/login.js"></script>
 </body>
-
 </html>

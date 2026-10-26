@@ -1,224 +1,157 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
     <title>Dashboard - KAPS MedTech</title>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
 </head>
-
 <body>
-    <header>
-        <nav>
-            <div class="container flex justify-between items-center">
-                <div class="flex items-center gap-2">
-                    <img src="img/logo.png" alt="KAPS MedTech logo" class="brand-logo">
-                    <div class="brand">KAPS <span>MedTech</span></div>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span id="role-badge" class="status-badge status-Completed">Student</span>
-                    <span id="welcome-msg" class="text-white">Welcome</span>
-                    <button id="logoutBtn" class="btn btn-outline btn-sm" style="margin-left: 1rem;">Logout</button>
-                </div>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="topbar">
+        <div class="shell topbar-inner">
+            <div class="brand">
+                <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5 4.5 6v8.2c0 7.3 4.6 12.4 11.5 15.3 6.9-2.9 11.5-8 11.5-15.3V6z" fill="currentColor"/><path class="pulse" d="M7 16.5h4.6l2.2-5.6 3.6 10.4 2.4-6.2 1.2 1.4H25" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <span class="brand-name">KAPS MedTech</span>
             </div>
-        </nav>
+            <div class="topbar-user">
+                <span id="welcome-msg" class="user-name"></span>
+                <span id="role-badge" class="chip chip-role"></span>
+                <button id="logoutBtn" class="btn btn-quiet btn-sm" type="button" data-icon="log-out">Log out</button>
+            </div>
+        </div>
     </header>
 
-    <div class="container dashboard-layout">
-        <nav class="sidebar-nav" aria-label="Dashboard navigation">
-            <div class="sidebar-menu">
-                <button class="menu-item active" data-view="view-book">Book Appointment</button>
-                <button class="menu-item" data-view="view-appointments">My Appointments</button>
-                <button class="menu-item" data-view="view-records">Medical Records</button>
-                <button class="menu-item" data-view="view-medicine">My Medicine</button>
-                <button class="menu-item" data-view="view-reminders">Reminders</button>
-            </div>
+    <div class="shell dash">
+        <nav class="side-nav" aria-label="Sections">
+            <button type="button" class="nav-item" data-view="view-book" aria-current="page">Book a visit</button>
+            <button type="button" class="nav-item" data-view="view-appointments">Appointments</button>
+            <button type="button" class="nav-item" data-view="view-records">Records</button>
+            <button type="button" class="nav-item" data-view="view-medicine">Medicines</button>
+            <button type="button" class="nav-item" data-view="view-reminders">Follow-ups</button>
         </nav>
 
-        <main class="main-content">
-            <!-- 1. Book Appointment -->
-            <section id="view-book" class="view-section" aria-labelledby="heading-book">
-                <h2 id="heading-book" class="mb-4">Book Appointment</h2>
-                <div class="card">
+        <main class="dash-main" id="main" tabindex="-1">
+            <section id="view-book" class="view" aria-labelledby="h-book">
+                <h1 id="h-book">Book a visit</h1>
 
-                    <!-- Step 1: Reason + Dept -->
-                    <div id="book-step-1">
-                        <div class="form-group mb-4">
-                            <label class="block mb-2 text-sm text-muted" for="symptom-input">Reason for Appointment</label>
-                            <input type="text" id="symptom-input" class="form-input" list="symptoms-datalist"
-                                placeholder="Select a common symptom or type your own...">
-                            <datalist id="symptoms-datalist">
-                                <option value="Fever / Shivering">
-                                <option value="Common Cold / Runny Nose">
-                                <option value="Cough and Sore Throat">
-                                <option value="Chest Pain / Pressure">
-                                <option value="Heart Palpitations / Racing Pulse">
-                                <option value="Asthma / Difficulty Breathing">
-                                <option value="Stomach Ache / Acid Heartburn">
-                                <option value="Nausea / Vomiting">
-                                <option value="Diarrhea / Loose Stools">
-                                <option value="Constipation / Gas Bloating">
-                                <option value="Headache / Severe Migraine">
-                                <option value="Dizziness / Vertigo Loss of Balance">
-                                <option value="Numbness / Tingling in Limbs">
-                                <option value="Knee Pain / Bone Injury">
-                                <option value="Severe Back Pain / Joint Stiffness">
-                                <option value="Muscle Strain / Joint Sprain">
-                                <option value="Skin Rash / Itchy Spots">
-                                <option value="Acne / Pimples Breakout">
-                                <option value="Severe Anxiety / Insomnia">
-                                <option value="Depressed Mood / Sleep Issues">
-                                <option value="Ear Pain / Hearing Loss">
-                                <option value="Sinus Pressure / Blocked Nose">
-                                <option value="Blurry Vision / Eye Redness">
-                                <option value="Toothache / Cavity Pain">
-                                <option value="Bleeding Gums / Tooth Sensitivity">
-                                <option value="Urinary Infection / Painful Urination">
-                                <option value="Thyroid / Sudden Weight Changes">
-                            </datalist>
-                            <div id="symptom-suggestion" class="text-sm mt-2 hidden" style="font-weight:600; padding:0.5rem 0.75rem; border-radius:6px; display:inline-block;"></div>
-                        </div>
-                        <label class="mb-2 block text-sm text-muted">Select Department</label>
-                        <div class="dept-grid">
-                            <button type="button" class="dept-card" data-dept="General Medicine">
-                                <span>General Medicine</span>
-                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Fever, cold, general health checkups</small>
-                            </button>
-                            <button type="button" class="dept-card" data-dept="Cardiology">
-                                <span>Cardiology</span>
-                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Heart, chest pain, pulse issues</small>
-                            </button>
-                            <button type="button" class="dept-card" data-dept="Pulmonology">
-                                <span>Pulmonology</span>
-                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Lung, breathing, asthma & cough</small>
-                            </button>
-                            <button type="button" class="dept-card" data-dept="Gastroenterology">
-                                <span>Gastroenterology</span>
-                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Stomach, digestion, food poisoning</small>
-                            </button>
-                            <button type="button" class="dept-card" data-dept="Neurology">
-                                <span>Neurology</span>
-                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Brain, migraines, nerve & balance</small>
-                            </button>
-                            <button type="button" class="dept-card" data-dept="Orthopedics">
-                                <span>Orthopedics</span>
-                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Bone, joint & muscle pain / injuries</small>
-                            </button>
-                            <button type="button" class="dept-card" data-dept="Dermatology">
-                                <span>Dermatology</span>
-                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Skin, rashes, eczema & acne</small>
-                            </button>
-                            <button type="button" class="dept-card" data-dept="Psychiatry">
-                                <span>Psychiatry</span>
-                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Mental health, anxiety & depression</small>
-                            </button>
-                            <button type="button" class="dept-card" data-dept="ENT">
-                                <span>ENT</span>
-                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Ear, nose & throat conditions</small>
-                            </button>
-                            <button type="button" class="dept-card" data-dept="Ophthalmology">
-                                <span>Ophthalmology</span>
-                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Eye care, vision & irritation</small>
-                            </button>
-                            <button type="button" class="dept-card" data-dept="Endocrinology">
-                                <span>Endocrinology</span>
-                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Hormones, diabetes & thyroid</small>
-                            </button>
-                            <button type="button" class="dept-card" data-dept="Nephrology">
-                                <span>Nephrology</span>
-                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Kidney, bladder & urinary tract</small>
-                            </button>
-                            <button type="button" class="dept-card" data-dept="Dentistry">
-                                <span>Dentistry</span>
-                                <small class="text-xs text-muted" style="font-weight: normal; margin-top: 2px;">Teeth, gum pain & cavity care</small>
-                            </button>
-                        </div>
+                <ol class="steps" aria-label="Progress">
+                    <li data-step="1" aria-current="step">Reason</li>
+                    <li data-step="2">Doctor</li>
+                    <li data-step="3">Time</li>
+                </ol>
+
+                <div id="book-step-1" class="panel">
+                    <div class="field">
+                        <label for="symptom-input">What is the visit about?</label>
+                        <input type="text" id="symptom-input" class="input" list="symptoms-datalist" maxlength="255" autocomplete="off" aria-describedby="symptom-hint">
+                        <datalist id="symptoms-datalist"></datalist>
+                        <p class="hint" id="symptom-hint">Pick a common symptom or describe it in your own words.</p>
+                        <p class="suggestion" id="symptom-suggestion" hidden></p>
                     </div>
+                    <h2 class="h-sub" id="dept-heading">Department</h2>
+                    <ul class="dept-grid" aria-labelledby="dept-heading">
+                            <li><button type="button" class="dept" data-dept="General Medicine"><span class="dept-name">General Medicine</span><span class="dept-desc">Fever, cold, general check-ups</span><span class="dept-flag" hidden>Suggested</span></button></li>
+                            <li><button type="button" class="dept" data-dept="Cardiology"><span class="dept-name">Cardiology</span><span class="dept-desc">Heart, chest pain, pulse</span><span class="dept-flag" hidden>Suggested</span></button></li>
+                            <li><button type="button" class="dept" data-dept="Pulmonology"><span class="dept-name">Pulmonology</span><span class="dept-desc">Lungs, breathing, cough</span><span class="dept-flag" hidden>Suggested</span></button></li>
+                            <li><button type="button" class="dept" data-dept="Gastroenterology"><span class="dept-name">Gastroenterology</span><span class="dept-desc">Stomach, digestion, food poisoning</span><span class="dept-flag" hidden>Suggested</span></button></li>
+                            <li><button type="button" class="dept" data-dept="Neurology"><span class="dept-name">Neurology</span><span class="dept-desc">Headaches, nerves, balance</span><span class="dept-flag" hidden>Suggested</span></button></li>
+                            <li><button type="button" class="dept" data-dept="Orthopedics"><span class="dept-name">Orthopedics</span><span class="dept-desc">Bones, joints, muscles, injuries</span><span class="dept-flag" hidden>Suggested</span></button></li>
+                            <li><button type="button" class="dept" data-dept="Dermatology"><span class="dept-name">Dermatology</span><span class="dept-desc">Skin, rashes, acne</span><span class="dept-flag" hidden>Suggested</span></button></li>
+                            <li><button type="button" class="dept" data-dept="Psychiatry"><span class="dept-name">Psychiatry</span><span class="dept-desc">Mental health, anxiety, sleep</span><span class="dept-flag" hidden>Suggested</span></button></li>
+                            <li><button type="button" class="dept" data-dept="ENT"><span class="dept-name">ENT</span><span class="dept-desc">Ear, nose and throat</span><span class="dept-flag" hidden>Suggested</span></button></li>
+                            <li><button type="button" class="dept" data-dept="Ophthalmology"><span class="dept-name">Ophthalmology</span><span class="dept-desc">Eyes and vision</span><span class="dept-flag" hidden>Suggested</span></button></li>
+                            <li><button type="button" class="dept" data-dept="Endocrinology"><span class="dept-name">Endocrinology</span><span class="dept-desc">Hormones, diabetes, thyroid</span><span class="dept-flag" hidden>Suggested</span></button></li>
+                            <li><button type="button" class="dept" data-dept="Nephrology"><span class="dept-name">Nephrology</span><span class="dept-desc">Kidneys and urinary tract</span><span class="dept-flag" hidden>Suggested</span></button></li>
+                            <li><button type="button" class="dept" data-dept="Dentistry"><span class="dept-name">Dentistry</span><span class="dept-desc">Teeth and gums</span><span class="dept-flag" hidden>Suggested</span></button></li>
+                    </ul>
+                </div>
 
-                    <!-- Step 2: Doctor -->
-                    <div id="book-step-2" class="hidden">
-                        <div class="flex items-center gap-2 mb-4">
-                            <button id="back-to-step-1" class="btn btn-outline btn-sm">
-                                &lt; Back
-                            </button>
-                            <h4 style="margin:0">Select Doctor (<span id="selected-dept" class="text-primary"></span>)</h4>
-                        </div>
-                        <div id="doctors-list" class="grid grid-cols-2 gap-2"></div>
+                <div id="book-step-2" class="panel" hidden>
+                    <div class="panel-head">
+                        <button id="back-to-step-1" class="btn btn-quiet btn-sm" type="button" data-icon="arrow-left">Back</button>
+                        <h2 class="h-sub">Doctors in <span id="selected-dept"></span></h2>
                     </div>
+                    <ul id="doctors-list" class="stack"></ul>
+                </div>
 
-                    <!-- Step 3: Slots -->
-                    <div id="book-step-3" class="hidden">
-                        <div class="flex items-center gap-2 mb-4">
-                            <button id="back-to-step-2" class="btn btn-outline btn-sm">
-                                &lt; Back
-                            </button>
-                            <h4 style="margin:0">Select Slot</h4>
-                        </div>
-                        <div class="form-group mb-4">
-                            <label class="block mb-2 text-sm text-muted" for="book-date">Choose Date</label>
-                            <input type="date" id="book-date" class="form-input" style="max-width: 200px;">
-                        </div>
-                        <div id="slots-container" class="slots-grid"></div>
-                        <button id="confirm-book-btn" class="btn btn-primary w-full mt-4 hidden">Confirm Booking</button>
+                <div id="book-step-3" class="panel" hidden>
+                    <div class="panel-head">
+                        <button id="back-to-step-2" class="btn btn-quiet btn-sm" type="button" data-icon="arrow-left">Back</button>
+                        <h2 class="h-sub">Pick a time with <span id="selected-doctor"></span></h2>
                     </div>
-
+                    <div class="field field-narrow">
+                        <label for="book-date">Date</label>
+                        <input type="date" id="book-date" class="input">
+                    </div>
+                    <div id="slots-container" class="slots" role="group" aria-label="Available times"></div>
+                    <button id="confirm-book-btn" class="btn btn-primary" type="button" hidden>Confirm booking</button>
                 </div>
             </section>
 
-            <!-- 2. My Appointments -->
-            <section id="view-appointments" class="view-section hidden" aria-labelledby="heading-appointments">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 id="heading-appointments">My Appointments</h2>
-                    <div class="flex gap-2">
-                        <input type="date" id="filter-start" class="form-input"
-                            style="padding: 0.5rem; width: auto; margin:0" aria-label="Start date filter">
-                        <input type="date" id="filter-end" class="form-input"
-                            style="padding: 0.5rem; width: auto; margin:0" aria-label="End date filter">
-                        <button id="filter-date-btn" class="btn btn-primary btn-sm">Filter</button>
+            <section id="view-appointments" class="view" aria-labelledby="h-appointments" hidden>
+                <h1 id="h-appointments">Appointments</h1>
+                <form id="filter-form" class="filters">
+                    <div class="field">
+                        <label for="filter-start">From</label>
+                        <input type="date" id="filter-start" class="input">
                     </div>
-                </div>
-                <!-- Search Reason -->
-                <div class="mb-4 flex gap-2">
-                    <input type="text" id="filter-reason" class="form-input" placeholder="Search by reason..."
-                        style="margin-bottom:0" aria-label="Search by symptom reason">
-                    <button id="filter-reason-btn" class="btn btn-outline">Search</button>
-                </div>
-
-                <div id="appointments-list" class="flex flex-col gap-2"></div>
+                    <div class="field">
+                        <label for="filter-end">To</label>
+                        <input type="date" id="filter-end" class="input">
+                    </div>
+                    <div class="field field-grow">
+                        <label for="filter-reason">Reason contains</label>
+                        <input type="text" id="filter-reason" class="input" maxlength="100">
+                    </div>
+                    <div class="filters-actions">
+                        <button type="submit" class="btn btn-primary">Apply</button>
+                        <button type="button" id="filter-clear" class="btn btn-quiet">Clear</button>
+                    </div>
+                </form>
+                <p class="hint" id="appointments-scope"></p>
+                <ul id="appointments-list" class="stack"></ul>
             </section>
 
-            <!-- 3. Medical Records -->
-            <section id="view-records" class="view-section hidden" aria-labelledby="heading-records">
-                <h2 id="heading-records" class="mb-4">Medical Records</h2>
-                <div id="records-list" class="flex flex-col gap-2"></div>
+            <section id="view-records" class="view" aria-labelledby="h-records" hidden>
+                <h1 id="h-records">Records</h1>
+                <div id="records-list" class="stack"></div>
             </section>
 
-            <!-- 4. Medicine -->
-            <section id="view-medicine" class="view-section hidden" aria-labelledby="heading-medicine">
-                <h2 id="heading-medicine" class="mb-4">My Medicine</h2>
-                <div id="medicine-list" class="dept-grid"></div>
+            <section id="view-medicine" class="view" aria-labelledby="h-medicine" hidden>
+                <h1 id="h-medicine">Active medicines</h1>
+                <p class="hint">Medicines drop off this list once the prescribed duration has passed.</p>
+                <ul id="medicine-list" class="label-grid"></ul>
             </section>
 
-            <!-- 5. Reminders -->
-            <section id="view-reminders" class="view-section hidden" aria-labelledby="heading-reminders">
-                <h2 id="heading-reminders" class="mb-4">Follow-up Reminders</h2>
-                <div id="reminders-list" class="flex flex-col gap-2"></div>
+            <section id="view-reminders" class="view" aria-labelledby="h-reminders" hidden>
+                <h1 id="h-reminders">Follow-ups</h1>
+                <ul id="reminders-list" class="stack"></ul>
             </section>
         </main>
     </div>
 
-    <!-- Record Modal -->
-    <div id="record-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <div class="modal-content relative">
-            <button id="record-modal-close" class="close-btn" aria-label="Close dialog">&times;</button>
-            <div id="record-modal-content"></div>
+    <dialog id="record-modal" class="dialog" aria-labelledby="record-title">
+        <div class="dialog-head">
+            <h2 id="record-title">Visit record</h2>
+            <button id="record-modal-close" class="icon-btn" type="button" aria-label="Close" data-icon="x"></button>
         </div>
-    </div>
+        <div id="record-modal-content" class="dialog-body"></div>
+    </dialog>
+
+    <footer class="site-footer">
+        <div class="shell">
+            <p>Student project with demo data. Nothing here is medical advice, and department suggestions are keyword matches, not a diagnosis. In an emergency, contact your local emergency services.</p>
+        </div>
+    </footer>
+    <div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
 
     <script src="js/app.js"></script>
     <script src="js/dashboard_user.js"></script>
 </body>
-
 </html>

@@ -1,221 +1,194 @@
-// frontend/js/dashboard_doctor.js — Doctor Dashboard Logic
-
-
+// Doctor dashboard: the booked queue and the treatment form.
 
 document.addEventListener('DOMContentLoaded', () => {
-    App.checkAuth();
-    // Fix duplicate Dr. title
-    const niceName = App.state.user.name.startsWith('Dr.') ? App.state.user.name : `Dr. ${App.state.user.name}`;
-    document.getElementById('welcome-msg').innerText = niceName;
+    if (!App.checkAuth(['doctor'])) return;
 
-    // --- Load Appointments ---
-    async function loadAppointments() {
-        const list = document.getElementById('appointments-list');
-        list.innerHTML = '<div class="skeleton-card"></div><div class="skeleton-card"></div>';
-        const data = await App.api('/doctor/today');
+    const $ = (id) => document.getElementById(id);
+    const { esc, icon, formatDate } = App;
 
-        if (!data || !data.length) {
-            list.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-state-icon">🩺</div>
-                    <h3>No active appointments</h3>
-                    <p class="text-muted">Enjoy your day, Doctor!</p>
-                </div>
-            `;
+    const name = App.state.user.name || '';
+    $('welcome-msg').textContent = /^Dr\.?\s/i.test(name) ? name : `Dr. ${name}`;
+    $('role-badge').textContent = 'doctor';
+
+    const MAX_FILE = 2 * 1024 * 1024;
+
+    // ---------- Queue ----------
+
+    async function loadQueue() {
+        const box = $('appointments-list');
+        box.innerHTML = '<div class="skeleton" aria-hidden="true"></div><div class="skeleton" aria-hidden="true"></div>';
+        const data = await App.load('/doctor/queue');
+        if (!data) { box.innerHTML = ''; return; }
+        if (!data.length) {
+            box.innerHTML = `<div class="empty">${icon('check')}<h3>The queue is empty</h3><p>Booked appointments appear here as patients make them.</p></div>`;
             return;
         }
 
-        list.innerHTML = data.map(apt => `
-            <div class="card card-row appointment-card">
-                <div class="flex items-center gap-3">
-                    <div class="time-badge">
-                        <h3 class="m-0 text-primary">${apt.appointment_time.substring(0, 5)}</h3>
-                    </div>
-                    <div>
-                        <h3 class="m-0 mb-1">${apt.patient_name}</h3>
-                        <div class="flex items-center gap-2">
-                            <span class="tag">Reason</span>
-                            <span>${apt.symptom_description || 'Not specified'}</span>
+        const byDay = new Map();
+        for (const a of data) {
+            if (!byDay.has(a.appointment_date)) byDay.set(a.appointment_date, []);
+            byDay.get(a.appointment_date).push(a);
+        }
+
+        box.innerHTML = [...byDay].map(([day, rows]) => `
+            <section class="queue-day" aria-label="${esc(formatDate(day))}">
+                <h2>${esc(formatDate(day))}${day === App.todayISO() ? ' (today)' : ''}</h2>
+                <ul class="stack">
+                    ${rows.map((a) => `
+                    <li class="queue-row">
+                        <span class="queue-time">${esc(a.appointment_time)}</span>
+                        <div>
+                            <p class="row-title">${esc(a.patient_name)}</p>
+                            <p class="queue-reason">Reason: ${esc(a.symptom_description || 'Not given')}</p>
                         </div>
-                    </div>
-                </div>
-                <div class="flex gap-2">
-                    <button class="btn btn-primary start-treatment-btn" 
-                            data-apt-id="${apt.id}" data-patient-id="${apt.patient_id}" data-patient-name="${apt.patient_name}">
-                        Start Treatment
-                    </button>
-                    <button class="btn btn-outline btn-danger cancel-apt-btn" data-apt-id="${apt.id}">
-                        Cancel
-                    </button>
-                </div>
-            </div>
-        `).join('');
-
-        // Attach event listeners
-        list.querySelectorAll('.start-treatment-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                startTreatment(
-                    parseInt(btn.dataset.aptId),
-                    parseInt(btn.dataset.patientId),
-                    btn.dataset.patientName
-                );
-            });
-        });
-
-        list.querySelectorAll('.cancel-apt-btn').forEach(btn => {
-            btn.addEventListener('click', () => cancelAppointment(parseInt(btn.dataset.aptId)));
-        });
+                        <div class="queue-actions">
+                            <button type="button" class="btn btn-primary btn-sm start-btn" data-apt-id="${a.id}" data-patient-id="${a.patient_id}" data-patient-name="${esc(a.patient_name)}">Start visit</button>
+                            <button type="button" class="btn btn-danger btn-sm cancel-btn" data-apt-id="${a.id}" data-patient-name="${esc(a.patient_name)}">Cancel</button>
+                        </div>
+                    </li>`).join('')}
+                </ul>
+            </section>`).join('');
     }
-    loadAppointments();
 
-    // --- Cancel Appointment ---
-    async function cancelAppointment(id) {
-        if (!confirm('Are you sure you want to cancel this appointment?')) return;
+    $('appointments-list').addEventListener('click', (e) => {
+        const start = e.target.closest('.start-btn');
+        const cancel = e.target.closest('.cancel-btn');
+        if (start) startTreatment(Number(start.dataset.aptId), Number(start.dataset.patientId), start.dataset.patientName, start);
+        if (cancel) cancelAppointment(Number(cancel.dataset.aptId), cancel.dataset.patientName);
+    });
+
+    async function cancelAppointment(id, patient) {
+        const ok = await App.confirm(`Cancel the appointment with ${patient}? They will need to book again.`, {
+            confirmLabel: 'Cancel appointment', danger: true,
+        });
+        if (!ok) return;
         try {
             await App.api('/doctor/cancel', 'POST', { appointment_id: id });
-            App.showToast('Appointment cancelled', 'success');
-            loadAppointments();
-        } catch (e) {
-            App.showToast(e.error || 'Failed to cancel', 'error');
+            App.showToast('Appointment cancelled.', 'success');
+            loadQueue();
+        } catch (err) {
+            App.showToast(err.error || 'Could not cancel the appointment.', 'error');
         }
     }
 
-    // --- Treatment Modal ---
-    async function startTreatment(aptId, patientId, patientName) {
-        document.getElementById('treatment-modal').classList.remove('hidden');
-        document.getElementById('apt-id').value = aptId;
-        document.getElementById('p-name').innerText = patientName;
+    // ---------- Treatment dialog ----------
 
-        // Fetch patient details
-        const data = await App.api(`/doctor/patient/${patientId}`);
-        document.getElementById('p-details').innerText = `Phone: ${data.patient.phone || 'N/A'} | ID: ${data.patient.identifier || 'N/A'}`;
+    const modal = $('treatment-modal');
+    App.closeOnBackdrop(modal);
+    $('modal-close-btn').addEventListener('click', () => modal.close());
 
-        // History
-        const histCtx = document.getElementById('p-history');
-        if (!data.history || !data.history.length) {
-            histCtx.innerHTML = '<p class="text-muted text-sm italic">No prior medical history found.</p>';
-        } else {
-            histCtx.innerHTML = data.history.map(h => `
-                <div class="history-item">
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="text-xs text-primary font-bold">${new Date(h.appointment_date).toLocaleDateString()}</span>
-                    </div>
-                    <div class="font-bold text-sm mb-1">${h.diagnosis}</div>
-                    <div class="text-xs text-muted">${h.advice || 'No specific advice recorded.'}</div>
-                </div>
-            `).join('');
-        }
-
-        // Clear Form
-        document.getElementById('diagnosis').value = '';
-        document.getElementById('advice').value = '';
-        document.getElementById('attached-reports').value = '';
-        document.getElementById('follow-up').value = '';
-        document.getElementById('update-phone').value = '';
-        document.getElementById('update-id').value = '';
-        document.getElementById('med-rows').innerHTML = '';
-        addMedRow();
-    }
-
-    function closeModal() {
-        document.getElementById('treatment-modal').classList.add('hidden');
-    }
-    document.getElementById('modal-close-btn').addEventListener('click', closeModal);
-
-    // --- Prescription Rows ---
     function addMedRow() {
-        const div = document.createElement('div');
-        div.className = 'med-row';
-        div.innerHTML = `
-            <input type="text" placeholder="Medicine Name" class="form-input med-name">
-            <input type="text" placeholder="Dose" class="form-input med-dose">
-            <input type="text" placeholder="Freq" class="form-input med-freq">
-            <input type="text" placeholder="Days" class="form-input med-dur">
-            <button type="button" class="btn btn-outline btn-sm med-remove-btn" title="Remove">×</button>
-        `;
-        div.querySelector('.med-remove-btn').addEventListener('click', () => {
-            if (document.querySelectorAll('#med-rows .med-row').length > 1) {
-                div.remove();
-            }
+        const row = document.createElement('div');
+        row.className = 'med-row';
+        const n = $('med-rows').children.length + 1;
+        const field = (cls, label, max) => `
+            <div class="field"><label>${label}<input type="text" class="input ${cls}" maxlength="${max}"></label></div>`;
+        row.innerHTML = `
+            ${field('med-name', `Medicine ${n}`, 100)}
+            ${field('med-dose', 'Dose', 50)}
+            ${field('med-freq', 'How often', 50)}
+            ${field('med-dur', 'For how long', 50)}
+            <button type="button" class="icon-btn med-remove" aria-label="Remove medicine ${n}"></button>`;
+        row.querySelector('.med-remove').insertAdjacentHTML('afterbegin', icon('x'));
+        row.querySelector('.med-remove').addEventListener('click', () => {
+            if ($('med-rows').children.length > 1) row.remove();
         });
-        document.getElementById('med-rows').appendChild(div);
+        $('med-rows').appendChild(row);
     }
-    document.getElementById('add-med-btn').addEventListener('click', addMedRow);
-
-    // Base64 helper
-    const toBase64 = file => new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = error => reject(error);
+    $('add-med-btn').addEventListener('click', () => {
+        addMedRow();
+        $('med-rows').lastElementChild.querySelector('input').focus();
     });
 
-    // --- Submit Treatment ---
-    document.getElementById('treatment-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const aptId = document.getElementById('apt-id').value;
-        const diagnosis = document.getElementById('diagnosis').value;
-        const advice = document.getElementById('advice').value;
-        const followUp = document.getElementById('follow-up').value;
+    async function startTreatment(aptId, patientId, patientName, opener) {
+        const data = await App.load(`/doctor/patient/${patientId}`);
+        if (!data) return;
 
-        // Handle Reports (File → Base64)
-        let attached_reports = null;
-        const fileInput = document.getElementById('attached-reports');
-        if (fileInput.files.length > 0) {
-            const file = fileInput.files[0];
-            if (file.size > 2 * 1024 * 1024) {
-                App.showToast('File is too large! Please upload a file smaller than 2MB.', 'error');
-                return;
-            }
-            try {
-                attached_reports = await toBase64(file);
-            } catch (err) {
-                App.showToast('Error processing file.', 'error');
-                return;
-            }
+        $('apt-id').value = aptId;
+        $('p-name').textContent = patientName;
+        $('p-details').textContent = `Phone ${data.patient.phone || 'not on file'}. ID ${data.patient.identifier || 'not on file'}.`;
+        $('p-history').innerHTML = data.history.length
+            ? data.history.map((h) => `
+                <div class="history-item">
+                    <p class="date">${esc(formatDate(h.appointment_date))}</p>
+                    <p class="dx">${esc(h.diagnosis)}</p>
+                    <p class="adv">${esc(h.advice || 'No advice recorded.')}</p>
+                </div>`).join('')
+            : '<p class="hint">No earlier visits on record.</p>';
+
+        $('treatment-form').reset();
+        $('treatment-error').hidden = true;
+        $('diagnosis').removeAttribute('aria-invalid');
+        $('follow-up').min = App.todayISO();
+        $('med-rows').replaceChildren();
+        addMedRow();
+
+        modal.showModal();
+        modal.addEventListener('close', () => opener.isConnected && opener.focus(), { once: true });
+    }
+
+    const toDataUrl = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+    });
+
+    function formError(message, field) {
+        const el = $('treatment-error');
+        el.textContent = message;
+        el.hidden = false;
+        if (field) { field.setAttribute('aria-invalid', 'true'); field.focus(); }
+        else el.scrollIntoView({ block: 'nearest' });
+    }
+
+    $('treatment-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        $('treatment-error').hidden = true;
+        $('diagnosis').removeAttribute('aria-invalid');
+
+        const diagnosis = $('diagnosis').value.trim();
+        if (!diagnosis) return formError('Enter a diagnosis.', $('diagnosis'));
+
+        let attached = null;
+        const file = $('attached-reports').files[0];
+        if (file) {
+            if (file.size > MAX_FILE) return formError('That file is over 2 MB. Choose a smaller one.', $('attached-reports'));
+            try { attached = await toDataUrl(file); } catch { return formError('The file could not be read.', $('attached-reports')); }
         }
 
-        // Collect Meds
-        const meds = [];
-        document.querySelectorAll('#med-rows .med-row').forEach(row => {
-            const name = row.querySelector('.med-name').value;
-            if (name) {
-                meds.push({
-                    name,
-                    dosage: row.querySelector('.med-dose').value,
-                    freq: row.querySelector('.med-freq').value,
-                    duration: row.querySelector('.med-dur').value
-                });
-            }
-        });
+        const prescriptions = [...document.querySelectorAll('#med-rows .med-row')]
+            .map((row) => ({
+                name: row.querySelector('.med-name').value.trim(),
+                dosage: row.querySelector('.med-dose').value.trim(),
+                freq: row.querySelector('.med-freq').value.trim(),
+                duration: row.querySelector('.med-dur').value.trim(),
+            }))
+            .filter((p) => p.name);
 
-        const updates = {
-            phone: document.getElementById('update-phone').value,
-            identifier: document.getElementById('update-id').value
-        };
-
-        const submitBtn = e.target.querySelector('button[type="submit"]');
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Saving...';
-
+        const btn = e.target.querySelector('[type="submit"]');
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
         try {
             await App.api('/doctor/record', 'POST', {
-                appointment_id: aptId,
+                appointment_id: Number($('apt-id').value),
                 diagnosis,
-                advice,
-                attached_reports,
-                follow_up_date: followUp || null,
-                prescriptions: meds,
-                patient_updates: updates
+                advice: $('advice').value,
+                attached_reports: attached,
+                follow_up_date: $('follow-up').value || null,
+                prescriptions,
+                patient_updates: { phone: $('update-phone').value, identifier: $('update-id').value },
             });
-            App.showToast('Treatment completed successfully!', 'success');
-            closeModal();
-            loadAppointments();
-        } catch (e) {
-            App.showToast(e.error || 'Failed to submit treatment.', 'error');
+            modal.close();
+            App.showToast('Visit saved and marked complete.', 'success');
+            loadQueue();
+        } catch (err) {
+            formError(err.error || 'Could not save the visit. Try again.');
         } finally {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Complete Treatment →';
+            btn.disabled = false;
+            btn.textContent = 'Save and complete visit';
         }
     });
+
+    loadQueue();
 });
