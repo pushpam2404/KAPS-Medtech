@@ -1,22 +1,30 @@
 {
-  "name": "kaps_medtech",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "kaps-medtech",
+  "version": "1.1.0",
+  "private": true,
+  "description": "University clinic appointment and treatment-record app (Express, PostgreSQL, vanilla JS).",
+  "license": "MIT",
+  "author": "pushpam2404",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pushpam2404/KAPS-Medtech.git"
+  },
+  "main": "backend/server.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node backend/server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "db:init": "node backend/init_db.js",
+    "test": "node --test test/unit",
+    "test:integration": "node --test --test-concurrency=1 test/integration"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "bcrypt": "^6.0.0",
-    "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
-    "express": "^5.2.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.3.0",
     "jsonwebtoken": "^9.0.3",
-    "pg": "^8.16.3"
+    "pg": "^8.23.1"
   }
 }
