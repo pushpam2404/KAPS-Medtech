@@ -1,3 +1,14 @@
+-- WARNING: this file DROPS and recreates every table. Run it on an empty
+-- database, never on one that already holds real data.
+--
+-- Adding the booking constraint to an existing database without a reset:
+--   CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_slot
+--       ON Appointments(doctor_id, appointment_date, appointment_time)
+--       WHERE status <> 'Cancelled';
+-- (it fails if double bookings already exist; cancel the duplicates first).
+--
+-- Seeded doctor accounts use the demo password "password123".
+
 -- ===============================
 -- CLEAN SLATE
 -- ===============================
@@ -340,3 +351,9 @@ CREATE INDEX idx_doctors_user ON Doctors(user_id);
 CREATE INDEX idx_medical_records_appointment ON MedicalRecords(appointment_id);
 CREATE INDEX idx_prescriptions_record ON Prescriptions(record_id);
 CREATE INDEX idx_symptoms_department ON Symptoms(department);
+
+-- One live booking per doctor and slot. This, not an application-side check,
+-- is what stops two simultaneous requests from taking the same slot.
+CREATE UNIQUE INDEX uniq_active_slot
+    ON Appointments(doctor_id, appointment_date, appointment_time)
+    WHERE status <> 'Cancelled';

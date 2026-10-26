@@ -11,13 +11,13 @@
   },
   "main": "backend/server.js",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "start": "node backend/server.js",
     "db:init": "node backend/init_db.js",
-    "test": "node --test test/unit",
-    "test:integration": "node --test --test-concurrency=1 test/integration"
+    "test": "node --test \"test/unit/*.test.js\"",
+    "test:integration": "node --test --test-concurrency=1 \"test/integration/*.test.js\""
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

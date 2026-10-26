@@ -1,288 +1,222 @@
 const express = require('express');
-const router = express.Router();
 const db = require('../db');
 const { authenticateToken } = require('../middleware/auth');
+const { DEPARTMENTS, generateSlots, isValidSlot, isMedicineActive, matchSymptoms } = require('../lib/clinic');
+const { toId, toDate, optionalText, requiredText, likePattern } = require('../lib/validate');
 
-// Helper
-function parseDurationToDays(durationStr) {
-    if (!durationStr) return 0;
-    const parts = durationStr.toLowerCase().split(' ');
-    const val = parseInt(parts[0]);
-    if (isNaN(val)) return 0;
-    if (parts[1] && parts[1].startsWith('week')) return val * 7;
-    if (parts[1] && parts[1].startsWith('month')) return val * 30;
-    return val;
-}
+const router = express.Router();
 
-// GET /api/appointments/symptoms
+const PRESCRIPTIONS_JSON = `
+    (SELECT json_agg(json_build_object('medicine', p.medicine_name, 'dosage', p.dosage,
+                                       'frequency', p.frequency, 'duration', p.duration) ORDER BY p.id)
+     FROM Prescriptions p WHERE p.record_id = mr.id)`;
+
+// Server and users may sit in different timezones; allow one day of slack
+// rather than reject someone booking "today" late in the evening.
+const NOT_IN_THE_PAST = `$1::date >= CURRENT_DATE - 1`;
+
+// GET /api/appointments/symptoms?q=  (public: a static dictionary)
 router.get('/symptoms', async (req, res) => {
-    const { q } = req.query;
-    try {
-        let queryText = 'SELECT * FROM Symptoms';
-        let params = [];
-        if (q) {
-            queryText += ' WHERE name ILIKE $1';
-            params.push(`%${q}%`);
-        }
-        const result = await db.query(queryText, params);
-        res.json(result.rows);
-    } catch (err) {
-        console.error('[SYMPTOMS ERROR]', err.message);
-        res.status(500).json({ error: 'Failed to fetch symptoms' });
-    }
+    const q = typeof req.query.q === 'string' ? req.query.q.slice(0, 200) : '';
+    const { rows } = await db.query('SELECT id, name, department FROM Symptoms ORDER BY id');
+    res.json(q ? matchSymptoms(q, rows).slice(0, 10) : rows);
 });
 
-// GET /api/appointments/doctors
+// GET /api/appointments/doctors?department=
 router.get('/doctors', authenticateToken, async (req, res) => {
     const { department } = req.query;
-    try {
-        let queryText = `
-            SELECT d.id, u.name, d.department, d.specialty
-            FROM Doctors d
-            JOIN Users u ON d.user_id = u.id
-        `;
-        let params = [];
-        if (department) {
-            queryText += ' WHERE d.department = $1';
-            params.push(department);
-        }
-        const result = await db.query(queryText, params);
-        res.json(result.rows);
-    } catch (err) {
-        console.error('[DOCTORS ERROR]', err.message);
-        res.status(500).json({ error: 'Failed to fetch doctors' });
+    if (department !== undefined && !DEPARTMENTS.includes(department)) {
+        return res.status(400).json({ error: 'Unknown department' });
     }
+    const { rows } = await db.query(
+        `SELECT d.id, u.name, d.department, d.specialty
+         FROM Doctors d JOIN Users u ON d.user_id = u.id
+         ${department ? 'WHERE d.department = $1' : ''}
+         ORDER BY u.name`,
+        department ? [department] : []
+    );
+    res.json(rows);
 });
 
-// GET /api/appointments/slots
+// GET /api/appointments/slots?doctor_id=&date=
 router.get('/slots', authenticateToken, async (req, res) => {
-    const { doctor_id, date } = req.query;
-    if (!doctor_id || !date) return res.status(400).json({ error: 'Missing doctor_id or date' });
+    const doctorId = toId(req.query.doctor_id);
+    const date = toDate(req.query.date);
+    if (!doctorId || !date) return res.status(400).json({ error: 'A valid doctor_id and date (YYYY-MM-DD) are required' });
 
-    try {
-        const booked = await db.query(
-            'SELECT appointment_time FROM Appointments WHERE doctor_id = $1 AND appointment_date = $2 AND status != \'Cancelled\'',
-            [doctor_id, date]
-        );
-        const bookedTimes = booked.rows.map(r => r.appointment_time.substring(0, 5));
-
-        const slots = [];
-        let start = 9;
-        while (start < 17) {
-            const h = start.toString().padStart(2, '0');
-            ['00', '30'].forEach(m => {
-                const time = `${h}:${m}`;
-                if (!bookedTimes.includes(time)) {
-                    slots.push(time);
-                }
-            });
-            start++;
-        }
-        res.json(slots);
-    } catch (err) {
-        console.error('[SLOTS ERROR]', err.message);
-        res.status(500).json({ error: 'Failed to fetch available slots' });
-    }
+    const { rows } = await db.query(
+        `SELECT to_char(appointment_time, 'HH24:MI') AS t FROM Appointments
+         WHERE doctor_id = $1 AND appointment_date = $2 AND status <> 'Cancelled'`,
+        [doctorId, date]
+    );
+    const taken = new Set(rows.map((r) => r.t));
+    res.json(generateSlots().filter((t) => !taken.has(t)));
 });
+
+// Shared by booking and rescheduling. Returns an error string, or null when the slot is acceptable.
+async function checkSlotInput(date, time) {
+    if (!date || !time) return 'A valid date (YYYY-MM-DD) and time (HH:MM) are required';
+    if (!isValidSlot(time)) return 'Time must be a half-hour slot between 09:00 and 16:30';
+    const { rows } = await db.query(`SELECT ${NOT_IN_THE_PAST} AS ok`, [date]);
+    return rows[0].ok ? null : 'Appointments cannot be in the past';
+}
 
 // POST /api/appointments/book
 router.post('/book', authenticateToken, async (req, res) => {
-    const { doctor_id, date, time, symptom } = req.body;
+    const doctorId = toId(req.body?.doctor_id);
+    const date = toDate(req.body?.date);
+    const time = req.body?.time;
+    const symptom = optionalText(req.body?.symptom, 255);
 
-    // Validate required fields
-    if (!doctor_id || !date || !time) {
-        return res.status(400).json({ error: 'Missing required fields: doctor_id, date, time' });
-    }
+    if (!doctorId) return res.status(400).json({ error: 'A valid doctor_id is required' });
+    if (symptom === null) return res.status(400).json({ error: 'Reason must be 255 characters or fewer' });
+    const problem = await checkSlotInput(date, time);
+    if (problem) return res.status(400).json({ error: problem });
 
     try {
-        // Check for slot conflict (race condition protection)
-        const conflict = await db.query(
-            `SELECT id FROM Appointments 
-             WHERE doctor_id = $1 AND appointment_date = $2 AND appointment_time = $3 AND status != 'Cancelled'`,
-            [doctor_id, date, time]
-        );
-        if (conflict.rows.length > 0) {
-            return res.status(409).json({ error: 'This time slot has already been booked' });
-        }
-
         await db.query(
-            'INSERT INTO Appointments (patient_id, doctor_id, appointment_date, appointment_time, symptom_description) VALUES ($1, $2, $3, $4, $5)',
-            [req.user.id, doctor_id, date, time, symptom]
+            `INSERT INTO Appointments (patient_id, doctor_id, appointment_date, appointment_time, symptom_description)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [req.user.id, doctorId, date, time, symptom]
         );
         res.status(201).json({ message: 'Appointment booked' });
     } catch (err) {
-        console.error('[BOOK ERROR]', err.message);
-        res.status(500).json({ error: 'Failed to book appointment' });
+        // The partial unique index is the real guard against double booking.
+        if (err.code === '23505') return res.status(409).json({ error: 'This time slot has already been booked' });
+        if (err.code === '23503') return res.status(400).json({ error: 'Unknown doctor' });
+        throw err;
     }
 });
 
 // GET /api/appointments/my-appointments
 router.get('/my-appointments', authenticateToken, async (req, res) => {
-    const { filter, start, end, q } = req.query;
-    try {
-        let sql = `
-            SELECT a.id, a.appointment_date, a.appointment_time, a.status, a.symptom_description,
-                   u.name as doctor_name, d.department, u.phone as doctor_phone
-            FROM Appointments a
-            JOIN Doctors d ON a.doctor_id = d.id
-            JOIN Users u ON d.user_id = u.id
-            WHERE a.patient_id = $1
-        `;
-        let params = [req.user.id];
-        let idx = 2;
+    const { filter } = req.query;
+    let where = `AND a.status = 'Booked'`;
+    const params = [req.user.id];
 
-        if (filter === 'date' && start && end) {
-            sql += ` AND a.appointment_date BETWEEN $${idx++} AND $${idx++}`;
-            params.push(start, end);
-        } else if (filter === 'reason' && q) {
-            sql += ` AND a.symptom_description ILIKE $${idx++}`;
-            params.push(`%${q}%`);
-        } else {
-            sql += ` AND a.status = 'Booked'`;
-        }
-
-        sql += ` ORDER BY a.appointment_date DESC, a.appointment_time DESC`;
-
-        const result = await db.query(sql, params);
-        res.json(result.rows);
-    } catch (err) {
-        console.error('[APPOINTMENTS ERROR]', err.message);
-        res.status(500).json({ error: 'Failed to fetch appointments' });
+    if (filter === 'date') {
+        const start = toDate(req.query.start);
+        const end = toDate(req.query.end);
+        if (!start || !end) return res.status(400).json({ error: 'start and end must be YYYY-MM-DD' });
+        where = 'AND a.appointment_date BETWEEN $2 AND $3';
+        params.push(start, end);
+    } else if (filter === 'reason') {
+        const q = requiredText(req.query.q, 100);
+        if (!q) return res.status(400).json({ error: 'Search text is required' });
+        where = `AND a.symptom_description ILIKE $2`;
+        params.push(likePattern(q));
     }
+
+    const { rows } = await db.query(
+        `SELECT a.id, a.appointment_date, to_char(a.appointment_time, 'HH24:MI') AS appointment_time,
+                a.status, a.symptom_description,
+                u.name AS doctor_name, d.department, u.phone AS doctor_phone
+         FROM Appointments a
+         JOIN Doctors d ON a.doctor_id = d.id
+         JOIN Users u ON d.user_id = u.id
+         WHERE a.patient_id = $1 ${where}
+         ORDER BY a.appointment_date DESC, a.appointment_time DESC`,
+        params
+    );
+    res.json(rows);
 });
 
 // GET /api/appointments/medical-records
 router.get('/medical-records', authenticateToken, async (req, res) => {
-    try {
-        const result = await db.query(`
-            SELECT mr.id, mr.diagnosis, mr.advice, mr.follow_up_date, mr.attached_reports,
-                   a.appointment_date, u.name as doctor_name,
-                   (SELECT json_agg(json_build_object('medicine', p.medicine_name, 'dosage', p.dosage, 'frequency', p.frequency, 'duration', p.duration)) 
-                    FROM Prescriptions p WHERE p.record_id = mr.id) as prescriptions
-            FROM MedicalRecords mr
-            JOIN Appointments a ON mr.appointment_id = a.id
-            JOIN Doctors d ON a.doctor_id = d.id
-            JOIN Users u ON d.user_id = u.id
-            WHERE a.patient_id = $1
-            ORDER BY a.appointment_date DESC
-        `, [req.user.id]);
-        res.json(result.rows);
-    } catch (err) {
-        console.error('[RECORDS ERROR]', err.message);
-        res.status(500).json({ error: 'Failed to fetch medical records' });
-    }
-});
-
-// GET /api/appointments/:id/record
-router.get('/:id/record', authenticateToken, async (req, res) => {
-    try {
-        // Verify ownership: patient or treating doctor
-        const aptCheck = await db.query(
-            `SELECT a.patient_id, d.user_id as doctor_user_id
-             FROM Appointments a
-             JOIN Doctors d ON a.doctor_id = d.id
-             WHERE a.id = $1`, [req.params.id]
-        );
-        if (aptCheck.rows.length === 0) return res.status(404).json({ error: 'Appointment not found' });
-        const apt = aptCheck.rows[0];
-        if (apt.patient_id !== req.user.id && apt.doctor_user_id !== req.user.id) {
-            return res.status(403).json({ error: 'Access denied' });
-        }
-
-        const result = await db.query(`
-            SELECT mr.diagnosis, mr.advice, mr.follow_up_date, mr.attached_reports,
-                   (SELECT json_agg(json_build_object('medicine', p.medicine_name, 'dosage', p.dosage, 'frequency', p.frequency, 'duration', p.duration)) 
-                    FROM Prescriptions p WHERE p.record_id = mr.id) as prescriptions
-            FROM MedicalRecords mr
-            WHERE mr.appointment_id = $1
-        `, [req.params.id]);
-
-        if (result.rows.length === 0) return res.status(404).json({ error: 'Record not found' });
-        res.json(result.rows[0]);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Failed to fetch record' });
-    }
+    const { rows } = await db.query(
+        `SELECT mr.id, mr.diagnosis, mr.advice, mr.follow_up_date, mr.attached_reports,
+                a.appointment_date, u.name AS doctor_name, ${PRESCRIPTIONS_JSON} AS prescriptions
+         FROM MedicalRecords mr
+         JOIN Appointments a ON mr.appointment_id = a.id
+         JOIN Doctors d ON a.doctor_id = d.id
+         JOIN Users u ON d.user_id = u.id
+         WHERE a.patient_id = $1
+         ORDER BY a.appointment_date DESC, mr.id DESC`,
+        [req.user.id]
+    );
+    res.json(rows);
 });
 
 // GET /api/appointments/my-medicine
 router.get('/my-medicine', authenticateToken, async (req, res) => {
-    try {
-        const result = await db.query(`
-            SELECT p.id, p.medicine_name, p.dosage, p.frequency, p.duration, u.name as doctor_name, a.appointment_date
-            FROM Prescriptions p
-            JOIN MedicalRecords mr ON p.record_id = mr.id
-            JOIN Appointments a ON mr.appointment_id = a.id
-            JOIN Doctors d ON a.doctor_id = d.id
-            JOIN Users u ON d.user_id = u.id
-            WHERE a.patient_id = $1
-            ORDER BY a.appointment_date DESC
-        `, [req.user.id]);
-
-        const activeMeds = result.rows.filter(m => {
-            const days = parseDurationToDays(m.duration);
-            if (days === 0) return true;
-
-            const prescribedDate = new Date(m.appointment_date);
-            const expiryDate = new Date(prescribedDate);
-            expiryDate.setDate(prescribedDate.getDate() + days);
-
-            return new Date() <= expiryDate;
-        });
-
-        res.json(activeMeds);
-    } catch (err) {
-        console.error('[MEDICINE ERROR]', err.message);
-        res.status(500).json({ error: 'Failed to fetch medicines' });
-    }
+    const { rows } = await db.query(
+        `SELECT p.id, p.medicine_name, p.dosage, p.frequency, p.duration, u.name AS doctor_name, a.appointment_date
+         FROM Prescriptions p
+         JOIN MedicalRecords mr ON p.record_id = mr.id
+         JOIN Appointments a ON mr.appointment_id = a.id
+         JOIN Doctors d ON a.doctor_id = d.id
+         JOIN Users u ON d.user_id = u.id
+         WHERE a.patient_id = $1
+         ORDER BY a.appointment_date DESC, p.id`,
+        [req.user.id]
+    );
+    const today = new Date().toISOString().slice(0, 10);
+    res.json(rows.filter((m) => isMedicineActive(m.appointment_date, m.duration, today)));
 });
 
 // GET /api/appointments/reminders
 router.get('/reminders', authenticateToken, async (req, res) => {
-    try {
-        const result = await db.query(`
-            SELECT mr.follow_up_date, mr.advice, u.name as doctor_name
-            FROM MedicalRecords mr
-            JOIN Appointments a ON mr.appointment_id = a.id
-            JOIN Doctors d ON a.doctor_id = d.id
-            JOIN Users u ON d.user_id = u.id
-            WHERE a.patient_id = $1 AND mr.follow_up_date >= CURRENT_DATE
-            ORDER BY mr.follow_up_date ASC
-        `, [req.user.id]);
-        res.json(result.rows);
-    } catch (err) {
-        console.error('[REMINDERS ERROR]', err.message);
-        res.status(500).json({ error: 'Failed to fetch reminders' });
+    const { rows } = await db.query(
+        `SELECT mr.follow_up_date, mr.advice, u.name AS doctor_name
+         FROM MedicalRecords mr
+         JOIN Appointments a ON mr.appointment_id = a.id
+         JOIN Doctors d ON a.doctor_id = d.id
+         JOIN Users u ON d.user_id = u.id
+         WHERE a.patient_id = $1 AND mr.follow_up_date >= CURRENT_DATE
+         ORDER BY mr.follow_up_date ASC`,
+        [req.user.id]
+    );
+    res.json(rows);
+});
+
+// GET /api/appointments/:id/record  (the patient or the treating doctor)
+router.get('/:id/record', authenticateToken, async (req, res) => {
+    const id = toId(req.params.id);
+    if (!id) return res.status(404).json({ error: 'Appointment not found' });
+
+    const { rows: owner } = await db.query(
+        `SELECT a.patient_id, d.user_id AS doctor_user_id
+         FROM Appointments a JOIN Doctors d ON a.doctor_id = d.id
+         WHERE a.id = $1`,
+        [id]
+    );
+    if (!owner.length) return res.status(404).json({ error: 'Appointment not found' });
+    if (owner[0].patient_id !== req.user.id && owner[0].doctor_user_id !== req.user.id) {
+        return res.status(403).json({ error: 'Access denied' });
     }
+
+    const { rows } = await db.query(
+        `SELECT mr.diagnosis, mr.advice, mr.follow_up_date, mr.attached_reports, ${PRESCRIPTIONS_JSON} AS prescriptions
+         FROM MedicalRecords mr WHERE mr.appointment_id = $1`,
+        [id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Record not found' });
+    res.json(rows[0]);
 });
 
 // PUT /api/appointments/:id/reschedule
 router.put('/:id/reschedule', authenticateToken, async (req, res) => {
-    const { id } = req.params;
-    const { date, time } = req.body;
+    const id = toId(req.params.id);
+    if (!id) return res.status(404).json({ error: 'Appointment not found' });
+
+    const { rows } = await db.query('SELECT patient_id, status FROM Appointments WHERE id = $1', [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Appointment not found' });
+    if (rows[0].patient_id !== req.user.id) return res.status(403).json({ error: 'Access denied' });
+    if (rows[0].status !== 'Booked') {
+        return res.status(400).json({ error: 'Only booked appointments can be rescheduled' });
+    }
+
+    const date = toDate(req.body?.date);
+    const time = req.body?.time;
+    const problem = await checkSlotInput(date, time);
+    if (problem) return res.status(400).json({ error: problem });
 
     try {
-        const apt = await db.query('SELECT * FROM Appointments WHERE id = $1', [id]);
-        if (apt.rows.length === 0) return res.status(404).json({ error: 'Not found' });
-
-        // Verify ownership
-        if (apt.rows[0].patient_id !== req.user.id) {
-            return res.status(403).json({ error: 'Access denied' });
-        }
-
-        if (apt.rows[0].status !== 'Booked') {
-            return res.status(400).json({ error: 'Cannot reschedule completed/cancelled appointment' });
-        }
-
-        await db.query(
-            'UPDATE Appointments SET appointment_date = $1, appointment_time = $2 WHERE id = $3',
-            [date, time, id]
-        );
+        await db.query('UPDATE Appointments SET appointment_date = $1, appointment_time = $2 WHERE id = $3', [date, time, id]);
         res.json({ message: 'Rescheduled' });
-
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Failed to reschedule appointment' });
+        if (err.code === '23505') return res.status(409).json({ error: 'This time slot has already been booked' });
+        throw err;
     }
 });
 

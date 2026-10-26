@@ -1,16 +1,18 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
 
-const isProduction = process.env.NODE_ENV === 'production';
-const hasNeonUrl = process.env.DATABASE_URL && process.env.DATABASE_URL.includes('neon.tech');
-const hasSupabaseUrl = process.env.DATABASE_URL && (process.env.DATABASE_URL.includes('supabase.co') || process.env.DATABASE_URL.includes('supabase.com'));
-const sslConfig = isProduction || hasNeonUrl || hasSupabaseUrl || process.env.DB_SSL === 'true'
-    ? { rejectUnauthorized: false }
-    : false;
+// Return DATE columns as plain 'YYYY-MM-DD' strings. The default parser builds a
+// JS Date in the server's timezone, which shifts the day when it is serialised.
+types.setTypeParser(1082, (value) => value);
 
-// Create the connection pool
+const url = process.env.DATABASE_URL || '';
+const isHosted = /neon\.tech|supabase\.(co|com)/.test(url);
+const useSsl = process.env.NODE_ENV === 'production' || isHosted || process.env.DB_SSL === 'true';
+
+// rejectUnauthorized is off so self-signed managed databases connect without
+// extra setup. For a database with a proper certificate, turn it on.
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: sslConfig
+    connectionString: url,
+    ssl: useSsl ? { rejectUnauthorized: false } : false,
 });
 
 module.exports = {

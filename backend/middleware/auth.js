@@ -1,16 +1,22 @@
 const jwt = require('jsonwebtoken');
 
 function authenticateToken(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    const header = req.headers.authorization || '';
+    const [scheme, token] = header.split(' ');
+    if (scheme !== 'Bearer' || !token) {
+        return res.status(401).json({ error: 'Login required' });
+    }
 
-    if (!token) return res.sendStatus(401);
-
-    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-        if (err) return res.sendStatus(403);
-        req.user = user;
+    jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] }, (err, payload) => {
+        if (err) return res.status(401).json({ error: 'Session expired, please log in again' });
+        req.user = payload;
         next();
     });
 }
 
-module.exports = { authenticateToken };
+function requireDoctor(req, res, next) {
+    if (req.user.role !== 'doctor') return res.status(403).json({ error: 'Doctors only' });
+    next();
+}
+
+module.exports = { authenticateToken, requireDoctor };

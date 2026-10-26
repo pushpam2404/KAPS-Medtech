@@ -1,30 +1,29 @@
-const rateLimitStore = new Map();
-
 /**
- * A lightweight, in-memory rate limiter middleware.
- * @param {number} windowMs - The time window in milliseconds (e.g. 15 minutes).
- * @param {number} max - The maximum number of requests allowed per IP within the window.
- * @param {string} message - The error message returned when limit is exceeded.
+ * Small in-memory limiter, keyed on req.ip.
+ * State lives in one process, so on a serverless host each warm instance
+ * counts separately. It slows down guessing; it is not a hard guarantee.
  */
-function rateLimiter(windowMs = 15 * 60 * 1000, max = 100, message = 'Too many requests, please try again later.') {
-    return (req, res, next) => {
-        const ip = req.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-        const now = Date.now();
+function rateLimiter({ windowMs, max, message }) {
+    const hits = new Map(); // ip -> timestamps inside the window
 
-        if (!rateLimitStore.has(ip)) {
-            rateLimitStore.set(ip, []);
+    const sweep = setInterval(() => {
+        const cutoff = Date.now() - windowMs;
+        for (const [ip, times] of hits) {
+            if (times[times.length - 1] <= cutoff) hits.delete(ip);
         }
+    }, windowMs);
+    sweep.unref();
 
-        const requests = rateLimitStore.get(ip);
-        // Filter out requests older than the time window
-        const activeRequests = requests.filter(time => now - time < windowMs);
-        activeRequests.push(now);
-        rateLimitStore.set(ip, activeRequests);
+    return (req, res, next) => {
+        const now = Date.now();
+        const times = (hits.get(req.ip) || []).filter((t) => now - t < windowMs);
+        times.push(now);
+        hits.set(req.ip, times);
 
-        if (activeRequests.length > max) {
+        if (times.length > max) {
+            res.set('Retry-After', String(Math.ceil(windowMs / 1000)));
             return res.status(429).json({ error: message });
         }
-
         next();
     };
 }
