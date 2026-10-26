@@ -46,3 +46,8 @@ Thumbs.db
 /coverage
 /dist
 /build
+
+# Local AI tooling
+.agents/
+.claude/
+.gemini/
