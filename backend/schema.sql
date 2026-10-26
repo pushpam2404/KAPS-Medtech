@@ -1,17 +1,14 @@
 -- WARNING: this file DROPS and recreates every table. Run it on an empty
--- database, never on one that already holds real data.
---
--- Adding the booking constraint to an existing database without a reset:
---   CREATE UNIQUE INDEX IF NOT EXISTS uniq_active_slot
---       ON Appointments(doctor_id, appointment_date, appointment_time)
---       WHERE status <> 'Cancelled';
--- (it fails if double bookings already exist; cancel the duplicates first).
+-- database, never on one that already holds real data. To bring an existing
+-- database up to date without losing data, run `npm run db:migrate` instead.
 --
 -- Seeded doctor accounts use the demo password "password123".
 
 -- ===============================
 -- CLEAN SLATE
 -- ===============================
+DROP TABLE IF EXISTS AuditLog CASCADE;
+DROP TABLE IF EXISTS DoctorDaysOff CASCADE;
 DROP TABLE IF EXISTS Prescriptions CASCADE;
 DROP TABLE IF EXISTS MedicalRecords CASCADE;
 DROP TABLE IF EXISTS Appointments CASCADE;
@@ -41,8 +38,31 @@ CREATE TABLE Doctors (
     user_id INT REFERENCES Users(id) ON DELETE CASCADE ON UPDATE CASCADE,
     department VARCHAR(50) NOT NULL,
     specialty VARCHAR(100),
-    availability_start TIME DEFAULT '09:00:00',
-    availability_end TIME DEFAULT '17:00:00'
+    availability_start TIME NOT NULL DEFAULT '09:00:00',
+    availability_end TIME NOT NULL DEFAULT '17:00:00',
+    -- ISO weekdays the doctor sees patients: 1 = Monday ... 7 = Sunday
+    working_days SMALLINT[] NOT NULL DEFAULT '{1,2,3,4,5}',
+    CHECK (availability_end > availability_start)
+);
+
+-- Blocks of whole days when a doctor takes no bookings (both ends inclusive).
+CREATE TABLE DoctorDaysOff (
+    id SERIAL PRIMARY KEY,
+    doctor_id INT NOT NULL REFERENCES Doctors(id) ON DELETE CASCADE,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    reason VARCHAR(100),
+    CHECK (end_date >= start_date)
+);
+
+-- Who looked at or changed patient data.
+CREATE TABLE AuditLog (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES Users(id) ON DELETE SET NULL,
+    action VARCHAR(40) NOT NULL,
+    target_type VARCHAR(30),
+    target_id INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ===============================
@@ -357,3 +377,6 @@ CREATE INDEX idx_symptoms_department ON Symptoms(department);
 CREATE UNIQUE INDEX uniq_active_slot
     ON Appointments(doctor_id, appointment_date, appointment_time)
     WHERE status <> 'Cancelled';
+
+CREATE INDEX idx_days_off_doctor ON DoctorDaysOff(doctor_id, start_date, end_date);
+CREATE INDEX idx_audit_user ON AuditLog(user_id, created_at);

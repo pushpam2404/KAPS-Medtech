@@ -17,7 +17,10 @@
     "start": "node backend/server.js",
     "db:init": "node backend/init_db.js",
     "test": "node --test \"test/unit/*.test.js\"",
-    "test:integration": "node --test --test-concurrency=1 \"test/integration/*.test.js\""
+    "test:integration": "node --test --test-concurrency=1 \"test/integration/*.test.js\"",
+    "db:migrate": "node backend/init_db.js --migrate",
+    "db:seed:demo": "node backend/seed_demo.js",
+    "db:reset:demo": "node backend/seed_demo.js --reset"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

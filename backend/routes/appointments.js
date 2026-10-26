@@ -1,7 +1,8 @@
 const express = require('express');
 const db = require('../db');
 const { authenticateToken } = require('../middleware/auth');
-const { DEPARTMENTS, generateSlots, isValidSlot, isMedicineActive, matchSymptoms } = require('../lib/clinic');
+const { DEPARTMENTS, isHalfHour, isMedicineActive, matchSymptoms } = require('../lib/clinic');
+const { getDoctorDay } = require('../lib/schedule');
 const { toId, toDate, optionalText, requiredText, likePattern } = require('../lib/validate');
 
 const router = express.Router();
@@ -29,7 +30,8 @@ router.get('/doctors', authenticateToken, async (req, res) => {
         return res.status(400).json({ error: 'Unknown department' });
     }
     const { rows } = await db.query(
-        `SELECT d.id, u.name, d.department, d.specialty
+        `SELECT d.id, u.name, d.department, d.specialty, d.working_days,
+                to_char(d.availability_start, 'HH24:MI') AS start_time, to_char(d.availability_end, 'HH24:MI') AS end_time
          FROM Doctors d JOIN Users u ON d.user_id = u.id
          ${department ? 'WHERE d.department = $1' : ''}
          ORDER BY u.name`,
@@ -44,21 +46,22 @@ router.get('/slots', authenticateToken, async (req, res) => {
     const date = toDate(req.query.date);
     if (!doctorId || !date) return res.status(400).json({ error: 'A valid doctor_id and date (YYYY-MM-DD) are required' });
 
-    const { rows } = await db.query(
-        `SELECT to_char(appointment_time, 'HH24:MI') AS t FROM Appointments
-         WHERE doctor_id = $1 AND appointment_date = $2 AND status <> 'Cancelled'`,
-        [doctorId, date]
-    );
-    const taken = new Set(rows.map((r) => r.t));
-    res.json(generateSlots().filter((t) => !taken.has(t)));
+    const day = await getDoctorDay(doctorId, date);
+    if (!day) return res.status(404).json({ error: 'Unknown doctor' });
+    res.json(day.free);
 });
 
 // Shared by booking and rescheduling. Returns an error string, or null when the slot is acceptable.
-async function checkSlotInput(date, time) {
-    if (!date || !time) return 'A valid date (YYYY-MM-DD) and time (HH:MM) are required';
-    if (!isValidSlot(time)) return 'Time must be a half-hour slot between 09:00 and 16:30';
+async function checkSlotInput(doctorId, date, time) {
+    if (!date || !isHalfHour(time)) return 'A valid date (YYYY-MM-DD) and a half-hour time (HH:MM) are required';
     const { rows } = await db.query(`SELECT ${NOT_IN_THE_PAST} AS ok`, [date]);
-    return rows[0].ok ? null : 'Appointments cannot be in the past';
+    if (!rows[0].ok) return 'Appointments cannot be in the past';
+    const day = await getDoctorDay(doctorId, date);
+    if (!day) return 'Unknown doctor';
+    if (!day.offered.includes(time)) {
+        return day.dayOff ? 'The doctor is away on that day' : 'The doctor does not see patients at that time';
+    }
+    return null;
 }
 
 // POST /api/appointments/book
@@ -70,7 +73,7 @@ router.post('/book', authenticateToken, async (req, res) => {
 
     if (!doctorId) return res.status(400).json({ error: 'A valid doctor_id is required' });
     if (symptom === null) return res.status(400).json({ error: 'Reason must be 255 characters or fewer' });
-    const problem = await checkSlotInput(date, time);
+    const problem = await checkSlotInput(doctorId, date, time);
     if (problem) return res.status(400).json({ error: problem });
 
     try {
@@ -108,7 +111,7 @@ router.get('/my-appointments', authenticateToken, async (req, res) => {
     }
 
     const { rows } = await db.query(
-        `SELECT a.id, a.appointment_date, to_char(a.appointment_time, 'HH24:MI') AS appointment_time,
+        `SELECT a.id, a.doctor_id, a.appointment_date, to_char(a.appointment_time, 'HH24:MI') AS appointment_time,
                 a.status, a.symptom_description,
                 u.name AS doctor_name, d.department, u.phone AS doctor_phone
          FROM Appointments a
@@ -199,7 +202,7 @@ router.put('/:id/reschedule', authenticateToken, async (req, res) => {
     const id = toId(req.params.id);
     if (!id) return res.status(404).json({ error: 'Appointment not found' });
 
-    const { rows } = await db.query('SELECT patient_id, status FROM Appointments WHERE id = $1', [id]);
+    const { rows } = await db.query('SELECT patient_id, doctor_id, status FROM Appointments WHERE id = $1', [id]);
     if (!rows.length) return res.status(404).json({ error: 'Appointment not found' });
     if (rows[0].patient_id !== req.user.id) return res.status(403).json({ error: 'Access denied' });
     if (rows[0].status !== 'Booked') {
@@ -208,7 +211,7 @@ router.put('/:id/reschedule', authenticateToken, async (req, res) => {
 
     const date = toDate(req.body?.date);
     const time = req.body?.time;
-    const problem = await checkSlotInput(date, time);
+    const problem = await checkSlotInput(rows[0].doctor_id, date, time);
     if (problem) return res.status(400).json({ error: problem });
 
     try {
@@ -218,6 +221,20 @@ router.put('/:id/reschedule', authenticateToken, async (req, res) => {
         if (err.code === '23505') return res.status(409).json({ error: 'This time slot has already been booked' });
         throw err;
     }
+});
+
+// POST /api/appointments/:id/cancel  (the patient cancels their own booked appointment)
+router.post('/:id/cancel', authenticateToken, async (req, res) => {
+    const id = toId(req.params.id);
+    if (!id) return res.status(404).json({ error: 'Appointment not found' });
+
+    const { rows } = await db.query('SELECT patient_id, status FROM Appointments WHERE id = $1', [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Appointment not found' });
+    if (rows[0].patient_id !== req.user.id) return res.status(403).json({ error: 'Access denied' });
+    if (rows[0].status !== 'Booked') return res.status(400).json({ error: 'Only booked appointments can be cancelled' });
+
+    await db.query(`UPDATE Appointments SET status = 'Cancelled' WHERE id = $1 AND status = 'Booked'`, [id]);
+    res.json({ message: 'Appointment cancelled' });
 });
 
 module.exports = router;

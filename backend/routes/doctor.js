@@ -2,6 +2,8 @@ const express = require('express');
 const db = require('../db');
 const { authenticateToken, requireDoctor } = require('../middleware/auth');
 const { toId, toDate, requiredText, optionalText, isValidAttachment } = require('../lib/validate');
+const { isHalfHour } = require('../lib/clinic');
+const { audit } = require('../lib/audit');
 
 const router = express.Router();
 router.use(authenticateToken, requireDoctor);
@@ -45,6 +47,7 @@ router.get('/patient/:id', async (req, res) => {
     );
     if (!rows.length) return res.status(404).json({ error: 'Patient not found' });
 
+    await audit(req.user.id, 'patient_view', 'user', patientId);
     const history = await db.query(
         `SELECT mr.id, mr.diagnosis, mr.advice, mr.follow_up_date, a.appointment_date
          FROM MedicalRecords mr JOIN Appointments a ON mr.appointment_id = a.id
@@ -143,6 +146,7 @@ router.post('/record', async (req, res) => {
         }
 
         await client.query('COMMIT');
+        await audit(req.user.id, 'record_create', 'appointment', r.appointmentId);
         res.json({ message: 'Record saved' });
     } catch (err) {
         await client.query('ROLLBACK');
@@ -164,7 +168,97 @@ router.post('/cancel', async (req, res) => {
         [appointmentId, req.user.id]
     );
     if (!rowCount) return res.status(404).json({ error: 'Appointment not found or already processed' });
+    await audit(req.user.id, 'appointment_cancel', 'appointment', appointmentId);
     res.json({ message: 'Appointment cancelled' });
+});
+
+// ---------- Availability ----------
+
+async function availabilityFor(doctorId) {
+    const doc = await db.query(
+        `SELECT to_char(availability_start, 'HH24:MI') AS start_time, to_char(availability_end, 'HH24:MI') AS end_time, working_days
+         FROM Doctors WHERE id = $1`,
+        [doctorId]
+    );
+    const off = await db.query(
+        `SELECT id, start_date, end_date, reason FROM DoctorDaysOff
+         WHERE doctor_id = $1 AND end_date >= CURRENT_DATE - 1 ORDER BY start_date`,
+        [doctorId]
+    );
+    return { ...doc.rows[0], days_off: off.rows };
+}
+
+// GET /api/doctor/availability
+router.get('/availability', async (req, res) => {
+    const doctorId = await doctorIdFor(req.user.id);
+    if (!doctorId) return res.status(400).json({ error: 'Doctor profile not found' });
+    res.json(await availabilityFor(doctorId));
+});
+
+// PUT /api/doctor/availability  { start_time, end_time, working_days }
+router.put('/availability', async (req, res) => {
+    const doctorId = await doctorIdFor(req.user.id);
+    if (!doctorId) return res.status(400).json({ error: 'Doctor profile not found' });
+
+    const { start_time: start, end_time: end, working_days: days } = req.body || {};
+    if (!isHalfHour(start) || !isHalfHour(end) || start < '06:00' || end > '22:00' || end <= start) {
+        return res.status(400).json({ error: 'Hours must be on the half hour, between 06:00 and 22:00, with the end after the start' });
+    }
+    const valid = Array.isArray(days) && days.length > 0 && days.length <= 7 && days.every((d) => Number.isInteger(d) && d >= 1 && d <= 7);
+    if (!valid) return res.status(400).json({ error: 'Choose at least one working day' });
+
+    await db.query(
+        'UPDATE Doctors SET availability_start = $1, availability_end = $2, working_days = $3 WHERE id = $4',
+        [start, end, [...new Set(days)].sort(), doctorId]
+    );
+    // Changing hours does not touch appointments that are already booked.
+    const stranded = await db.query(
+        `SELECT count(*)::int AS n FROM Appointments
+         WHERE doctor_id = $1 AND status = 'Booked' AND appointment_date >= CURRENT_DATE
+           AND (appointment_time < $2 OR appointment_time + interval '30 minutes' > $3
+                OR NOT (EXTRACT(ISODOW FROM appointment_date)::int = ANY($4)))`,
+        [doctorId, start, end, [...new Set(days)]]
+    );
+    res.json({ ...(await availabilityFor(doctorId)), outside_new_hours: stranded.rows[0].n });
+});
+
+// POST /api/doctor/days-off  { start_date, end_date, reason }
+router.post('/days-off', async (req, res) => {
+    const doctorId = await doctorIdFor(req.user.id);
+    if (!doctorId) return res.status(400).json({ error: 'Doctor profile not found' });
+
+    const start = toDate(req.body?.start_date);
+    const end = toDate(req.body?.end_date || req.body?.start_date);
+    const reason = optionalText(req.body?.reason, 100);
+    if (!start || !end || end < start) return res.status(400).json({ error: 'Give a start date and an end date that is not before it' });
+    if (reason === null) return res.status(400).json({ error: 'Reason is too long' });
+
+    const { rows: today } = await db.query('SELECT $1::date >= CURRENT_DATE - 1 AS ok, ($2::date - $1::date) <= 366 AS short', [start, end]);
+    if (!today[0].ok) return res.status(400).json({ error: 'Days off cannot start in the past' });
+    if (!today[0].short) return res.status(400).json({ error: 'A block can cover at most a year' });
+
+    const created = await db.query(
+        'INSERT INTO DoctorDaysOff (doctor_id, start_date, end_date, reason) VALUES ($1,$2,$3,$4) RETURNING id',
+        [doctorId, start, end, reason]
+    );
+    // Existing bookings stay; the doctor can cancel them from the queue.
+    const booked = await db.query(
+        `SELECT count(*)::int AS n FROM Appointments WHERE doctor_id = $1 AND status = 'Booked' AND appointment_date BETWEEN $2 AND $3`,
+        [doctorId, start, end]
+    );
+    res.status(201).json({ id: created.rows[0].id, booked_in_range: booked.rows[0].n });
+});
+
+// DELETE /api/doctor/days-off/:id
+router.delete('/days-off/:id', async (req, res) => {
+    const id = toId(req.params.id);
+    if (!id) return res.status(404).json({ error: 'Not found' });
+    const { rowCount } = await db.query(
+        'DELETE FROM DoctorDaysOff o USING Doctors d WHERE o.id = $1 AND o.doctor_id = d.id AND d.user_id = $2',
+        [id, req.user.id]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'Not found' });
+    res.json({ message: 'Removed' });
 });
 
 module.exports = router;

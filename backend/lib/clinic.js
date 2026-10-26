@@ -7,21 +7,42 @@ const DEPARTMENTS = [
     'Ophthalmology', 'Endocrinology', 'Nephrology', 'Dentistry',
 ];
 
-const DAY_START_HOUR = 9;
-const DAY_END_HOUR = 17;
+const DEFAULT_START = '09:00';
+const DEFAULT_END = '17:00';
+const DEFAULT_DAYS = [1, 2, 3, 4, 5]; // ISO weekdays: 1 = Monday ... 7 = Sunday
 
-/** Half-hour slots from 09:00 up to the last one starting before 17:00. */
-function generateSlots() {
+const toMinutes = (t) => {
+    const [h, m] = String(t).slice(0, 5).split(':').map(Number);
+    return h * 60 + m;
+};
+const fromMinutes = (n) => `${String(Math.floor(n / 60)).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
+
+/** Half-hour slots that start at or after `start` and finish by `end`. */
+function generateSlots(start = DEFAULT_START, end = DEFAULT_END) {
     const slots = [];
-    for (let h = DAY_START_HOUR; h < DAY_END_HOUR; h++) {
-        const hh = String(h).padStart(2, '0');
-        slots.push(`${hh}:00`, `${hh}:30`);
-    }
+    for (let m = toMinutes(start); m + 30 <= toMinutes(end); m += 30) slots.push(fromMinutes(m));
     return slots;
 }
 
-function isValidSlot(time) {
-    return generateSlots().includes(time);
+/** HH:MM on a half-hour boundary. */
+function isHalfHour(t) {
+    return typeof t === 'string' && /^([01]\d|2[0-3]):(00|30)$/.test(t);
+}
+
+function isoWeekday(isoDate) {
+    const d = new Date(`${isoDate}T00:00:00Z`).getUTCDay();
+    return d === 0 ? 7 : d;
+}
+
+/**
+ * Slots a doctor offers on one date: nothing on a non-working weekday or
+ * inside a day-off block; otherwise the half-hours of their working hours.
+ * daysOff rows look like { start_date, end_date } (YYYY-MM-DD, inclusive).
+ */
+function offeredSlots({ start, end, workingDays }, isoDate, daysOff = []) {
+    if (!workingDays.includes(isoWeekday(isoDate))) return [];
+    if (daysOff.some((o) => o.start_date <= isoDate && isoDate <= o.end_date)) return [];
+    return generateSlots(start, end);
 }
 
 /** "5 days" -> 5, "2 weeks" -> 14, "1 month" -> 30, "ongoing" -> 0 (no end). */
@@ -97,7 +118,10 @@ function matchSymptoms(text, symptoms) {
 module.exports = {
     DEPARTMENTS,
     generateSlots,
-    isValidSlot,
+    isHalfHour,
+    isoWeekday,
+    offeredSlots,
+    DEFAULT_DAYS,
     parseDurationToDays,
     isMedicineActive,
     matchSymptoms,

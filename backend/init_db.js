@@ -1,8 +1,11 @@
-// Creates the tables and demo data. schema.sql drops existing tables first.
+// Loads schema.sql (drops existing tables first) or, with --migrate,
+// applies migrations.sql to an existing database without losing data.
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env'), quiet: true });
 const db = require('./db');
+
+const migrate = process.argv.includes('--migrate');
 
 (async () => {
     if (!process.env.DATABASE_URL) {
@@ -10,12 +13,12 @@ const db = require('./db');
         process.exit(1);
     }
     try {
-        const sql = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
-        await db.pool.query(sql);
-        console.log('Schema and demo data loaded.');
+        const file = migrate ? 'migrations.sql' : 'schema.sql';
+        await db.pool.query(fs.readFileSync(path.join(__dirname, file), 'utf8'));
+        console.log(migrate ? 'Migrations applied.' : 'Schema and demo data loaded.');
         await db.pool.end();
     } catch (err) {
-        console.error('Failed to load schema:', err.message);
+        console.error('Failed:', err.message);
         process.exit(1);
     }
 })();

@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
-    generateSlots, isValidSlot, parseDurationToDays, isMedicineActive, matchSymptoms, addDays,
+    generateSlots, isHalfHour, isoWeekday, offeredSlots, parseDurationToDays, isMedicineActive, matchSymptoms, addDays,
 } = require('../../backend/lib/clinic');
 
 test('slots run every 30 minutes from 09:00 to 16:30', () => {
@@ -12,11 +12,36 @@ test('slots run every 30 minutes from 09:00 to 16:30', () => {
     assert.equal(slots.at(-1), '16:30');
 });
 
-test('only generated slots are valid', () => {
-    assert.ok(isValidSlot('13:30'));
-    for (const t of ['08:30', '17:00', '10:15', '9:00', '', undefined, null, 1000]) {
-        assert.equal(isValidSlot(t), false, String(t));
-    }
+test('slots follow the hours given', () => {
+    assert.deepEqual(generateSlots('10:00', '12:00'), ['10:00', '10:30', '11:00', '11:30']);
+    assert.deepEqual(generateSlots('09:00', '09:45'), ['09:00']);
+    assert.deepEqual(generateSlots('12:00', '12:00'), []);
+});
+
+test('half-hour times', () => {
+    assert.ok(isHalfHour('13:30'));
+    for (const t of ['10:15', '9:00', '24:00', '', undefined, null, 1000]) assert.equal(isHalfHour(t), false, String(t));
+});
+
+test('weekdays are ISO numbered', () => {
+    assert.equal(isoWeekday('2026-10-26'), 1); // Monday
+    assert.equal(isoWeekday('2026-10-31'), 6); // Saturday
+    assert.equal(isoWeekday('2026-11-01'), 7); // Sunday
+});
+
+const WEEKDAYS = { start: '09:00', end: '11:00', workingDays: [1, 2, 3, 4, 5] };
+
+test('a doctor offers slots only on working days', () => {
+    assert.deepEqual(offeredSlots(WEEKDAYS, '2026-10-26'), ['09:00', '09:30', '10:00', '10:30']);
+    assert.deepEqual(offeredSlots(WEEKDAYS, '2026-10-31'), []); // Saturday
+});
+
+test('days off remove whole days, ends included', () => {
+    const off = [{ start_date: '2026-10-27', end_date: '2026-10-28' }];
+    assert.equal(offeredSlots(WEEKDAYS, '2026-10-26', off).length, 4);
+    assert.deepEqual(offeredSlots(WEEKDAYS, '2026-10-27', off), []);
+    assert.deepEqual(offeredSlots(WEEKDAYS, '2026-10-28', off), []);
+    assert.equal(offeredSlots(WEEKDAYS, '2026-10-29', off).length, 4);
 });
 
 test('durations become days', () => {

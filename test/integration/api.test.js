@@ -14,6 +14,7 @@ if (!process.env.DATABASE_URL) {
 
 const app = require('../../backend/server');
 const db = require('../../backend/db');
+const { addDays } = require('../../backend/lib/clinic');
 
 let server;
 let base;
@@ -45,8 +46,16 @@ async function api(method, path, { token, body, raw } = {}) {
 
 const stamp = Date.now();
 const day = (offset) => new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
-// Random day so the suite can be re-run against the same database.
-const futureDate = day(3 + Math.floor(Math.random() * 360));
+// A random Wednesday more than a month out: doctors work Wednesdays by default,
+// the demo seed keeps its bookings within a few days of today, and the random
+// pick lets the suite be re-run against the same database.
+function randomWednesday() {
+    for (let n = 30 + Math.floor(Math.random() * 300); ; n++) {
+        const d = day(n);
+        if (new Date(`${d}T00:00:00Z`).getUTCDay() === 3) return d;
+    }
+}
+const futureDate = randomWednesday();
 
 async function signupAndLogin(label, extra = {}) {
     const email = `${label}_${stamp}@example.edu`;
@@ -140,6 +149,10 @@ test('doctors and slots', async () => {
     assert.equal(slots.data.length, 16);
     assert.equal(slots.data[0], '09:00');
     assert.equal((await api('GET', '/appointments/slots?doctor_id=abc&date=2030-02-30', { token: t })).status, 400);
+    assert.equal((await api('GET', `/appointments/slots?doctor_id=999999&date=${futureDate}`, { token: t })).status, 404);
+    const sunday = addDays(futureDate, 4);
+    const closed = await api('GET', `/appointments/slots?doctor_id=${state.doctor.id}&date=${sunday}`, { token: t });
+    assert.deepEqual(closed.data, [], 'no slots on a non-working day');
 });
 
 test('booking rules', async () => {
@@ -152,6 +165,7 @@ test('booking rules', async () => {
     assert.equal((await book({ doctor_id: 'x' })).status, 400);
     assert.equal((await book({ doctor_id: 999999 })).status, 400);
     assert.equal((await book({ time: '10:17' })).status, 400);
+    assert.equal((await book({ time: '18:00' })).status, 400, 'outside working hours');
     assert.equal((await book({ date: day(-5) })).status, 400);
     assert.equal((await book({ symptom: 'x'.repeat(300) })).status, 400);
 
@@ -277,4 +291,96 @@ test('doctor can cancel only their own booked appointment', async () => {
 
     const freed = await api('POST', '/appointments/book', { token: t, body: { doctor_id: state.doctor.id, date: futureDate, time: slot, symptom: 'again' } });
     assert.equal(freed.status, 201, 'a cancelled slot can be booked again');
+});
+
+test('patients can cancel their own booked appointment, once', async () => {
+    const t = state.student.token;
+    const book = (time) => api('POST', '/appointments/book', { token: t, body: { doctor_id: state.doctor.id, date: futureDate, time, symptom: 'cancel me' } });
+    assert.equal((await book('13:00')).status, 201);
+    const apt = (await api('GET', '/appointments/my-appointments', { token: t })).data.find((a) => a.appointment_time === '13:00');
+    assert.equal(apt.doctor_id, state.doctor.id);
+
+    assert.equal((await api('POST', `/appointments/${apt.id}/cancel`, { token: state.other.token })).status, 403);
+    assert.equal((await api('POST', '/appointments/abc/cancel', { token: t })).status, 404);
+    assert.equal((await api('POST', `/appointments/${apt.id}/cancel`, { token: t })).status, 200);
+    assert.equal((await api('POST', `/appointments/${apt.id}/cancel`, { token: t })).status, 400, 'already cancelled');
+    assert.equal((await api('PUT', `/appointments/${apt.id}/reschedule`, { token: t, body: { date: futureDate, time: '13:30' } })).status, 400);
+
+    const slots = await api('GET', `/appointments/slots?doctor_id=${state.doctor.id}&date=${futureDate}`, { token: t });
+    assert.ok(slots.data.includes('13:00'), 'the freed slot can be booked again');
+});
+
+test('reschedule respects the doctor\'s hours', async () => {
+    const t = state.student.token;
+    assert.equal((await api('POST', '/appointments/book', { token: t, body: { doctor_id: state.doctor.id, date: futureDate, time: '14:00', symptom: 'move me' } })).status, 201);
+    const apt = (await api('GET', '/appointments/my-appointments', { token: t })).data.find((a) => a.appointment_time === '14:00');
+    assert.equal((await api('PUT', `/appointments/${apt.id}/reschedule`, { token: t, body: { date: futureDate, time: '20:00' } })).status, 400);
+    assert.equal((await api('PUT', `/appointments/${apt.id}/reschedule`, { token: t, body: { date: futureDate, time: '14:30' } })).status, 200);
+});
+
+test('a doctor sets hours, working days and days off; the slot picker follows', async () => {
+    const email = `avail_${stamp}@example.edu`;
+    const made = await api('POST', '/auth/signup', {
+        body: { name: `Avail Doc ${stamp}`, email, password: 'a-decent-password', role: 'doctor', department: 'Dermatology', doctor_code: 'test-invite' },
+    });
+    assert.equal(made.status, 201);
+    const token = (await api('POST', '/auth/login', { body: { email, password: 'a-decent-password' } })).data.token;
+    const patient = state.student.token;
+    const docId = (await api('GET', '/appointments/doctors?department=Dermatology', { token: patient })).data.find((d) => d.name === `Avail Doc ${stamp}`).id;
+    const slots = async (date) => (await api('GET', `/appointments/slots?doctor_id=${docId}&date=${date}`, { token: patient })).data;
+    const book = (date, time) => api('POST', '/appointments/book', { token: patient, body: { doctor_id: docId, date, time, symptom: 'rash' } });
+
+    const initial = await api('GET', '/doctor/availability', { token });
+    assert.deepEqual(initial.data.working_days, [1, 2, 3, 4, 5]);
+    assert.equal(initial.data.start_time, '09:00');
+
+    assert.equal((await api('PUT', '/doctor/availability', { token, body: { start_time: '10:15', end_time: '12:00', working_days: [3] } })).status, 400);
+    assert.equal((await api('PUT', '/doctor/availability', { token, body: { start_time: '12:00', end_time: '10:00', working_days: [3] } })).status, 400);
+    assert.equal((await api('PUT', '/doctor/availability', { token, body: { start_time: '10:00', end_time: '12:00', working_days: [] } })).status, 400);
+    assert.equal((await api('PUT', '/doctor/availability', { token, body: { start_time: '10:00', end_time: '12:00', working_days: [0, 9] } })).status, 400);
+    assert.equal((await api('PUT', '/doctor/availability', { token: patient, body: { start_time: '10:00', end_time: '12:00', working_days: [3] } })).status, 403);
+
+    const saved = await api('PUT', '/doctor/availability', { token, body: { start_time: '10:00', end_time: '12:00', working_days: [3] } });
+    assert.equal(saved.status, 200);
+    assert.deepEqual(saved.data.working_days, [3]);
+
+    assert.deepEqual(await slots(futureDate), ['10:00', '10:30', '11:00', '11:30']);
+    const thursday = addDays(futureDate, 1);
+    assert.deepEqual(await slots(thursday), [], 'Wednesday only');
+    assert.equal((await book(futureDate, '09:30')).status, 400);
+    assert.equal((await book(futureDate, '12:00')).status, 400, 'a slot that would end after closing');
+    assert.equal((await book(thursday, '10:00')).status, 400);
+    assert.equal((await book(futureDate, '11:30')).status, 201);
+
+    // A day off removes the date from the picker and from booking, and warns about existing bookings.
+    assert.equal((await api('POST', '/doctor/days-off', { token, body: { start_date: futureDate, end_date: day(-1) } })).status, 400);
+    assert.equal((await api('POST', '/doctor/days-off', { token, body: { start_date: day(-30), end_date: day(-29) } })).status, 400, 'not in the past');
+    const off = await api('POST', '/doctor/days-off', { token, body: { start_date: futureDate, end_date: futureDate, reason: 'Conference' } });
+    assert.equal(off.status, 201);
+    assert.equal(off.data.booked_in_range, 1);
+    assert.deepEqual(await slots(futureDate), []);
+    const blocked = await book(futureDate, '10:00');
+    assert.equal(blocked.status, 400);
+    assert.match(blocked.data.error, /away/);
+
+    assert.equal((await api('DELETE', `/doctor/days-off/${off.data.id}`, { token: state.otherDocToken })).status, 404, "not another doctor's block");
+    assert.equal((await api('DELETE', `/doctor/days-off/${off.data.id}`, { token })).status, 200);
+    assert.deepEqual(await slots(futureDate), ['10:00', '10:30', '11:00']); // 11:30 is still booked
+
+    const listed = await api('GET', '/doctor/availability', { token });
+    assert.equal(listed.data.days_off.length, 0);
+});
+
+test('the sign-in page can fetch demo accounts, and a switch turns them off', async () => {
+    const on = await api('GET', '/demo-accounts');
+    assert.equal(on.status, 200);
+    assert.ok(on.data.accounts.some((a) => a.role === 'student'));
+    assert.ok(on.data.accounts.some((a) => a.role === 'staff'));
+    assert.ok(on.data.accounts.filter((a) => a.role === 'doctor').length >= 2);
+    process.env.DEMO_MODE = 'off';
+    try {
+        assert.deepEqual((await api('GET', '/demo-accounts')).data.accounts, []);
+    } finally {
+        delete process.env.DEMO_MODE;
+    }
 });

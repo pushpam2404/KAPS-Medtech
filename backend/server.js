@@ -13,6 +13,7 @@ const cors = require('cors');
 const db = require('./db');
 const { errorHandler } = require('./middleware/errorHandler');
 const { rateLimiter } = require('./middleware/rateLimiter');
+const { DEMO_ACCOUNTS, DEMO_PASSWORD } = require('./lib/demo');
 const authRoutes = require('./routes/auth');
 const appointmentRoutes = require('./routes/appointments');
 const doctorRoutes = require('./routes/doctor');
@@ -63,6 +64,12 @@ app.get('/api/health', async (req, res) => {
         console.error(`[health] ${err.message}`);
         res.status(503).json({ status: 'ERROR', error: 'Database connection failed' });
     }
+});
+
+// The sign-in page offers these as one-click logins. Set DEMO_MODE=off for a real deployment.
+app.get('/api/demo-accounts', (req, res) => {
+    if ((process.env.DEMO_MODE || '').toLowerCase() === 'off') return res.json({ accounts: [] });
+    res.json({ password: DEMO_PASSWORD, accounts: DEMO_ACCOUNTS });
 });
 
 const authLimiter = rateLimiter({
