@@ -15,7 +15,7 @@ The project was set up for Vercel (app) and Neon (PostgreSQL), both on free plan
 
    If the database already exists and you only need the booking constraint, run the `CREATE UNIQUE INDEX` statement at the top of `backend/schema.sql`.
 
-Neon pauses free projects that sit idle, and may remove them after a long time. If `/api/health` reports `Database connection failed`, check the Neon dashboard first.
+If `/api/health` reports `Database connection failed`, check the Neon dashboard first. Free projects are suspended when idle, and the project may have been removed.
 
 ## Vercel
 
