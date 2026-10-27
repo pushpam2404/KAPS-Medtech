@@ -7,7 +7,7 @@ const DEMO_ACCOUNTS = [
     { role: 'staff', label: 'Staff patient', name: 'Meera Nair', email: 'meera.nair@example.edu' },
     { role: 'doctor', label: 'Neurology doctor', name: 'Dr. Mohit Khanna', email: 'neuro1@health.edu' },
     { role: 'doctor', label: 'Cardiology doctor', name: 'Dr. Arjun Patel', email: 'cardio1@health.edu' },
-    { role: 'doctor', label: 'General Medicine doctor', name: 'Dr. Anil Sharma', email: 'gp1@health.edu' },
+    { role: 'doctor', label: 'General doctor', name: 'Dr. Anil Sharma', email: 'gp1@health.edu' },
 ];
 
 // Extra patients who fill the doctors' queues. Not listed on the sign-in page.
