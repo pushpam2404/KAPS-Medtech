@@ -20,11 +20,16 @@ On Vercel the same app runs as one serverless function (`vercel.json` sends ever
 backend/
   server.js        app setup; exports the app so tests can start it on any port
   db.js            pg pool, DATE columns returned as strings
-  schema.sql       tables, indexes, demo doctors and symptoms
-  init_db.js       loads schema.sql
+  schema.sql       tables, indexes, 65 seeded doctors and the symptom list
+  migrations.sql   idempotent upgrade for an existing database (npm run db:migrate)
+  init_db.js       loads schema.sql or migrations.sql
+  seed_demo.js     demo patients, visits, reports; guarded against production
   routes/          auth, appointments (patients), doctor
   middleware/      JWT check, doctor-only check, rate limiter, error handler
-  lib/clinic.js    slots, durations, symptom matching (no database)
+  lib/clinic.js    slots, availability, durations, symptom matching (no database)
+  lib/schedule.js  what a doctor offers on a date, from the database
+  lib/ssl.js       TLS settings for the database connection
+  lib/audit.js, lib/demo.js
   lib/validate.js  input checks (no database)
 frontend/          index.html, dashboard_user.html, dashboard_doctor.html, css/, js/
 test/unit          tests for lib/
@@ -33,7 +38,7 @@ test/integration   API tests against a real PostgreSQL
 
 ## Data
 
-Six tables: `Users`, `Doctors` (one per doctor user), `Symptoms` (name to department), `Appointments`, `MedicalRecords` (one per completed appointment) and `Prescriptions`.
+Eight tables: `Users`, `Doctors` (one per doctor user, with working hours and ISO working days), `DoctorDaysOff`, `Symptoms` (name to department), `Appointments`, `MedicalRecords` (one per completed appointment), `Prescriptions` and `AuditLog`.
 
 `Appointments` has a partial unique index on `(doctor_id, appointment_date, appointment_time) WHERE status <> 'Cancelled'`. The booking route does not check first and then insert; it inserts and turns the unique violation into a 409. That is the only approach that holds when two requests arrive together, and `test/integration/api.test.js` fires four at once to check it.
 
@@ -52,6 +57,6 @@ No framework or build step. Every string from the API goes through `App.esc()` b
 ## Known limits
 
 - The rate limiter keeps counts in memory, so on serverless hosting each warm instance counts on its own.
-- `db.js` connects to hosted databases with `rejectUnauthorized: false`.
-- Slots are fixed (09:00 to 17:00 in half hours for every doctor); the `availability_*` columns in `Doctors` are not used.
+- Database TLS verifies certificates by default (`lib/ssl.js`). Neon passes; Supabase's pooler has a private CA and needs `DATABASE_CA` or `DATABASE_SSL=relaxed`.
+- Slots are half an hour and each doctor has one set of hours for all working days. Changing hours or adding days off never moves existing bookings.
 - Dates compare against the database server's clock with one day of slack, since users and the server can be in different timezones.

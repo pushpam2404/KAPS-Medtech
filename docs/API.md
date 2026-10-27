@@ -28,17 +28,16 @@ Returns 201 on success, 400 for bad input, 403 for a doctor signup without a val
 | Route | What it does |
 | --- | --- |
 | `GET /api/appointments/symptoms?q=` | Symptom dictionary. With `q`, up to 10 rows ranked by how well they match the text. No login needed. |
-| `GET /api/appointments/doctors?department=` | Doctors, optionally for one department. |
-| `GET /api/appointments/slots?doctor_id=&date=` | Free slots for that doctor and day. |
-| `POST /api/appointments/book` | Body `{ doctor_id, date, time, symptom }`. 201, or 409 if the slot is taken, 400 for a past date, a time that is not a slot, or an unknown doctor. |
+| `GET /api/appointments/doctors?department=` | Doctors, optionally for one department, with `working_days` (ISO, 1 = Monday), `start_time` and `end_time`. |
+| `GET /api/appointments/slots?doctor_id=&date=` | Free slots for that doctor and day. Empty on a non-working weekday or a day off; 404 for an unknown doctor. |
+| `POST /api/appointments/book` | Body `{ doctor_id, date, time, symptom }`. 201, or 409 if the slot is taken, 400 for a past date, a time outside the doctor's hours or working days (or a day off), or an unknown doctor. |
 | `GET /api/appointments/my-appointments` | Booked appointments. `?filter=date&start=&end=` or `?filter=reason&q=` returns every status. |
-| `PUT /api/appointments/:id/reschedule` | Body `{ date, time }`. Own, still-booked appointments only. |
+| `PUT /api/appointments/:id/reschedule` | Body `{ date, time }`. Own, still-booked appointments only; same rules as booking. |
+| `POST /api/appointments/:id/cancel` | Cancels the patient's own booked appointment. 400 if it is not booked, 403 if it is not theirs. |
 | `GET /api/appointments/medical-records` | Own records with prescriptions. |
 | `GET /api/appointments/:id/record` | One record. Allowed for the patient and the treating doctor. |
 | `GET /api/appointments/my-medicine` | Prescriptions whose duration has not run out. A duration that is not a number of days ("ongoing") never runs out. |
 | `GET /api/appointments/reminders` | Follow-up dates from today onward. |
-
-The web UI does not call `reschedule` yet.
 
 ## Doctors (role `doctor`)
 
@@ -49,6 +48,14 @@ The web UI does not call `reschedule` yet.
 | `POST /api/doctor/record` | Completes a booked appointment of this doctor's. Body: `appointment_id`, `diagnosis`, optional `advice`, `follow_up_date`, `prescriptions` (`[{ name, dosage, freq, duration }]`, at most 20), `attached_reports` and `patient_updates` (`{ phone, identifier }`). `attached_reports` is a base64 data URL for PNG, JPEG, WebP, GIF or PDF, about 2 MB at most. All of it happens in one transaction. |
 | `POST /api/doctor/cancel` | Body `{ appointment_id }`. Cancels one of this doctor's booked appointments. |
 
+| `GET /api/doctor/availability` | `{ start_time, end_time, working_days, days_off: [{ id, start_date, end_date, reason }] }` for this doctor (upcoming days off only). |
+| `PUT /api/doctor/availability` | Body `{ start_time, end_time, working_days }`. Half-hour times between 06:00 and 22:00, end after start, at least one day. Also returns `outside_new_hours`, the number of booked future appointments that no longer fit. They are not moved. |
+| `POST /api/doctor/days-off` | Body `{ start_date, end_date, reason }` (`end_date` optional). Not in the past, at most a year. Returns `{ id, booked_in_range }`. |
+| `DELETE /api/doctor/days-off/:id` | Removes one of this doctor's blocks. |
+
 ## Other
+
+`GET /api/demo-accounts` returns `{ password, accounts }` for the sign-in page's demo buttons, or an empty list when `DEMO_MODE=off`.
+
 
 `GET /api/health` returns 200 when the database answers and 503 when it does not.
