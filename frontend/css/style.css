@@ -117,8 +117,7 @@ button { cursor: pointer; }
 /* ---------- Brand ---------- */
 
 .brand { display: flex; align-items: center; gap: 0.6rem; }
-.brand-mark { width: 28px; height: 28px; color: var(--brand); flex: none; }
-.brand-mark .pulse { stroke: var(--surface); }
+.brand-mark { width: 32px; height: 32px; flex: none; object-fit: contain; }
 .brand-name { font-weight: 700; font-size: 1.0625rem; letter-spacing: -0.01em; }
 
 /* ---------- Buttons and fields ---------- */
@@ -209,8 +208,11 @@ fieldset { margin: 0 0 1rem; padding: 0; border: 0; min-width: 0; }
     flex-direction: column;
     gap: 1.5rem;
 }
-.auth-panel .brand-mark { color: var(--on-panel); }
-.auth-panel .brand-mark .pulse { stroke: var(--panel); }
+/* The logo's navy half disappears on dark surfaces, so it sits on a light tile there. */
+.auth-panel .brand-mark { background: #fff; border-radius: 8px; padding: 3px; width: 38px; height: 38px; }
+@media (prefers-color-scheme: dark) {
+    .topbar .brand-mark { background: #fff; border-radius: 8px; padding: 3px; width: 38px; height: 38px; }
+}
 .auth-title { font-size: clamp(1.75rem, 3.4vw, 2.5rem); line-height: 1.12; font-weight: 700; margin: auto 0 0; max-width: 18ch; letter-spacing: -0.02em; }
 .auth-lede { color: var(--on-panel-soft); max-width: 42ch; font-size: 1.0625rem; }
 .auth-note { color: var(--on-panel-soft); font-size: 0.875rem; max-width: 48ch; padding-top: 1rem; border-top: 1px solid rgb(232 242 246 / 18%); }
@@ -291,6 +293,27 @@ fieldset { margin: 0 0 1rem; padding: 0; border: 0; min-width: 0; }
 .segmented label:last-of-type span { border-radius: 0 var(--radius) var(--radius) 0; }
 .segmented input:checked + span { background: var(--brand); border-color: var(--brand); color: var(--on-brand); position: relative; z-index: 1; }
 .segmented input:focus-visible + span { outline: 3px solid var(--focus); outline-offset: 2px; z-index: 2; }
+
+/* Demo accounts */
+.demo { margin: 0 0 1.25rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--line); }
+.demo-title { font-size: 1rem; }
+.demo .hint { margin: 0.15rem 0 0.75rem; }
+.demo-list { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.demo-chip {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+    background: var(--brand-wash);
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    transition: border-color 0.15s var(--ease);
+}
+.demo-chip:hover:not(:disabled) { border-color: var(--brand); }
+.demo-chip:disabled { opacity: 0.6; cursor: wait; }
+.demo-chip strong { display: block; font-size: 0.9375rem; }
+.demo-chip span { display: block; font-size: 0.8125rem; color: var(--ink-soft); }
 
 /* ---------- App chrome ---------- */
 
@@ -410,6 +433,9 @@ fieldset { margin: 0 0 1rem; padding: 0; border: 0; min-width: 0; }
 .pick-sub { font-size: 0.875rem; color: var(--ink-soft); display: block; }
 
 .slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(5.25rem, 1fr)); gap: 0.5rem; margin-bottom: 1.25rem; }
+.slots > .hint { grid-column: 1 / -1; }
+.dialog-body > .hint { margin-bottom: 1rem; }
+
 .slot {
     min-height: 44px;
     background: var(--surface);
@@ -478,6 +504,31 @@ dl.facts dd { margin: 0; overflow-wrap: anywhere; }
 
 .skeleton { height: 4.5rem; border-radius: var(--radius); background: linear-gradient(90deg, var(--line) 0%, var(--paper) 50%, var(--line) 100%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
 @keyframes shimmer { to { background-position: -200% 0; } }
+
+/* ---------- Doctor availability ---------- */
+
+.schedule { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; margin-top: 1rem; }
+.days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.35rem; }
+.days legend { grid-column: 1 / -1; padding: 0; }
+.days label { position: relative; display: block; margin: 0; }
+.days input { position: absolute; inset: 0; opacity: 0; }
+.days span {
+    display: grid;
+    place-items: center;
+    min-height: 44px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--surface);
+    font-weight: 600;
+    font-size: 0.875rem;
+    transition: background-color 0.15s var(--ease);
+}
+.days input:checked + span { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+.days input:focus-visible + span { outline: 3px solid var(--focus); outline-offset: 2px; }
+.off-list { margin-top: 1.25rem; }
+.off-item { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; padding: 0.7rem 0.9rem; border: 1px solid var(--line); border-radius: var(--radius); }
+.off-item p { overflow-wrap: anywhere; }
+.notice { padding: 0.6rem 0.85rem; background: var(--warn-wash); color: var(--warn); border-left: 3px solid var(--warn); border-radius: 0 var(--radius) var(--radius) 0; font-weight: 500; margin-bottom: 1rem; }
 
 /* ---------- Doctor queue ---------- */
 
@@ -563,6 +614,7 @@ dl.facts dd { margin: 0; overflow-wrap: anywhere; }
     .nav-item { flex: none; border-left: 0; border-bottom: 3px solid transparent; border-radius: 0; white-space: nowrap; }
     .nav-item[aria-current="page"] { border-left-color: transparent; border-bottom-color: var(--brand); background: none; }
     .treat { grid-template-columns: 1fr; gap: 1.25rem; }
+    .schedule { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 560px) {
@@ -575,6 +627,8 @@ dl.facts dd { margin: 0; overflow-wrap: anywhere; }
     .med-row { grid-template-columns: 1fr 1fr; }
     .med-row .field:first-child { grid-column: 1 / -1; }
     .pair { grid-template-columns: 1fr; }
+    .demo-list { grid-template-columns: 1fr; }
+    .days span { font-size: 0.8125rem; }
     .filters-actions { width: 100%; }
     .filters-actions .btn { flex: 1; }
     .topbar-inner { padding-top: 0.6rem; padding-bottom: 0.6rem; }

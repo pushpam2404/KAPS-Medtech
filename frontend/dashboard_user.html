@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <title>Dashboard - KAPS MedTech</title>
-    <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="img/favicon-32.png" type="image/png" sizes="32x32">
+    <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#0a2f44">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -16,7 +19,7 @@
     <header class="topbar">
         <div class="shell topbar-inner">
             <div class="brand">
-                <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5 4.5 6v8.2c0 7.3 4.6 12.4 11.5 15.3 6.9-2.9 11.5-8 11.5-15.3V6z" fill="currentColor"/><path class="pulse" d="M7 16.5h4.6l2.2-5.6 3.6 10.4 2.4-6.2 1.2 1.4H25" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <img class="brand-mark" src="img/logo-mark.png" alt="" width="32" height="32">
                 <span class="brand-name">KAPS MedTech</span>
             </div>
             <div class="topbar-user">
@@ -135,6 +138,26 @@
             </section>
         </main>
     </div>
+
+    <dialog id="reschedule-modal" class="dialog" aria-labelledby="reschedule-title">
+        <div class="dialog-head">
+            <h2 id="reschedule-title">Reschedule</h2>
+            <button id="reschedule-close" class="icon-btn" type="button" aria-label="Close" data-icon="x"></button>
+        </div>
+        <div class="dialog-body">
+            <p id="reschedule-summary" class="hint"></p>
+            <div class="field field-narrow">
+                <label for="reschedule-date">New date</label>
+                <input type="date" id="reschedule-date" class="input">
+            </div>
+            <div id="reschedule-slots" class="slots" role="group" aria-label="Available times"></div>
+            <p class="form-error" id="reschedule-error" role="alert" hidden></p>
+            <div class="dialog-actions">
+                <button type="button" class="btn btn-quiet" id="reschedule-cancel">Keep current time</button>
+                <button type="button" class="btn btn-primary" id="reschedule-confirm" disabled>Move appointment</button>
+            </div>
+        </div>
+    </dialog>
 
     <dialog id="record-modal" class="dialog" aria-labelledby="record-title">
         <div class="dialog-head">

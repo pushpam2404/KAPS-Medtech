@@ -41,6 +41,30 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // One-click demo logins, when the server offers them.
+    fetch('/api/demo-accounts').then((r) => r.json()).then(({ accounts, password }) => {
+        if (!accounts || !accounts.length) return;
+        document.getElementById('demo-list').innerHTML = accounts.map((a) => `
+            <li><button type="button" class="demo-chip" data-email="${App.esc(a.email)}">
+                <strong>${App.esc(a.label)}</strong><span>${App.esc(a.name)}</span>
+            </button></li>`).join('');
+        document.getElementById('demo-accounts').hidden = false;
+        document.getElementById('demo-list').addEventListener('click', async (e) => {
+            const chip = e.target.closest('.demo-chip');
+            if (!chip) return;
+            const chips = document.querySelectorAll('.demo-chip');
+            chips.forEach((c) => { c.disabled = true; });
+            try {
+                const res = await App.api('/auth/login', 'POST', { email: chip.dataset.email, password });
+                App.login(res.token, res.role, { name: res.name, id: res.id });
+            } catch (err) {
+                chips.forEach((c) => { c.disabled = false; });
+                selectTab(0);
+                showError('login-error', `${err.error || 'Sign in failed.'} If the demo data is missing, run npm run db:seed:demo.`);
+            }
+        });
+    }).catch(() => { /* no demo accounts */ });
+
     function showError(id, message, field) {
         const el = document.getElementById(id);
         el.textContent = message;

@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <title>Doctor queue - KAPS MedTech</title>
-    <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="img/favicon-32.png" type="image/png" sizes="32x32">
+    <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#0a2f44">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -16,7 +19,7 @@
     <header class="topbar">
         <div class="shell topbar-inner">
             <div class="brand">
-                <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5 4.5 6v8.2c0 7.3 4.6 12.4 11.5 15.3 6.9-2.9 11.5-8 11.5-15.3V6z" fill="currentColor"/><path class="pulse" d="M7 16.5h4.6l2.2-5.6 3.6 10.4 2.4-6.2 1.2 1.4H25" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <img class="brand-mark" src="img/logo-mark.png" alt="" width="32" height="32">
                 <span class="brand-name">KAPS MedTech</span>
             </div>
             <div class="topbar-user">
@@ -28,9 +31,72 @@
     </header>
 
     <main class="shell doc-main" id="main" tabindex="-1">
-        <h1>Patient queue</h1>
-        <p class="hint">Booked appointments, soonest first.</p>
-        <div id="appointments-list" class="queue"></div>
+        <div class="tabs" role="tablist" aria-label="Doctor sections">
+            <button type="button" class="tab" role="tab" id="tab-queue" aria-selected="true" aria-controls="panel-queue">Queue</button>
+            <button type="button" class="tab" role="tab" id="tab-schedule" aria-selected="false" aria-controls="panel-schedule" tabindex="-1">Availability</button>
+        </div>
+
+        <section id="panel-queue" role="tabpanel" aria-labelledby="tab-queue">
+            <h1>Patient queue</h1>
+            <p class="hint">Booked appointments, soonest first.</p>
+            <div id="appointments-list" class="queue"></div>
+        </section>
+
+        <section id="panel-schedule" role="tabpanel" aria-labelledby="tab-schedule" hidden>
+            <h1>Availability</h1>
+            <p class="hint">Patients can book half-hour slots inside these days and hours. Appointments that are already booked stay where they are.</p>
+
+            <div class="schedule">
+                <form id="hours-form" class="panel" novalidate>
+                    <h2 class="h-sub">Working days and hours</h2>
+                    <fieldset class="days">
+                        <legend>Working days</legend>
+                        <label><input type="checkbox" name="day" value="1"><span>Mon</span></label>
+                        <label><input type="checkbox" name="day" value="2"><span>Tue</span></label>
+                        <label><input type="checkbox" name="day" value="3"><span>Wed</span></label>
+                        <label><input type="checkbox" name="day" value="4"><span>Thu</span></label>
+                        <label><input type="checkbox" name="day" value="5"><span>Fri</span></label>
+                        <label><input type="checkbox" name="day" value="6"><span>Sat</span></label>
+                        <label><input type="checkbox" name="day" value="7"><span>Sun</span></label>
+                    </fieldset>
+                    <div class="pair">
+                        <div class="field">
+                            <label for="hours-start">First slot starts</label>
+                            <select id="hours-start" class="input"></select>
+                        </div>
+                        <div class="field">
+                            <label for="hours-end">Last slot ends</label>
+                            <select id="hours-end" class="input"></select>
+                        </div>
+                    </div>
+                    <p class="form-error" id="hours-error" role="alert" hidden></p>
+                    <button type="submit" class="btn btn-primary">Save hours</button>
+                </form>
+
+                <section class="panel" aria-labelledby="days-off-title">
+                    <h2 class="h-sub" id="days-off-title">Days off</h2>
+                    <form id="days-off-form" novalidate>
+                        <div class="pair">
+                            <div class="field">
+                                <label for="off-start">From</label>
+                                <input type="date" id="off-start" class="input" required>
+                            </div>
+                            <div class="field">
+                                <label for="off-end">To (optional)</label>
+                                <input type="date" id="off-end" class="input">
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label for="off-reason">Reason (optional)</label>
+                            <input type="text" id="off-reason" class="input" maxlength="100">
+                        </div>
+                        <p class="form-error" id="days-off-error" role="alert" hidden></p>
+                        <button type="submit" class="btn btn-quiet">Add days off</button>
+                    </form>
+                    <ul id="days-off-list" class="stack off-list"></ul>
+                </section>
+            </div>
+        </section>
     </main>
 
     <dialog id="treatment-modal" class="dialog dialog-wide" aria-labelledby="modal-title">

@@ -57,6 +57,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // ---------- Booking ----------
 
     let booking = { dept: '', reason: '', doctor: null, doctorName: '', date: null, time: null };
+    let doctorsById = new Map();
+    const hoursText = (d) => `${App.formatDays(d.working_days)}, ${d.start_time} to ${d.end_time}`;
     let suggestedDept = null;
     let debounce;
     let suggestSeq = 0;
@@ -136,10 +138,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const doctors = await App.load(`/appointments/doctors?department=${encodeURIComponent(dept)}`);
             if (!doctors) return;
             const list = $('doctors-list');
+            doctorsById = new Map(doctors.map((d) => [d.id, d]));
             list.innerHTML = doctors.length
                 ? doctors.map((d) => `
                     <li><button type="button" class="pick" data-doctor-id="${d.id}" data-name="${esc(d.name)}">
-                        <span><span class="pick-name">${esc(d.name)}</span><span class="pick-sub">${esc(SPECIALTY_NOTE[d.department] || d.specialty || d.department)}</span></span>
+                        <span><span class="pick-name">${esc(d.name)}</span><span class="pick-sub">${esc(SPECIALTY_NOTE[d.department] || d.specialty || d.department)}</span><span class="pick-sub">Sees patients ${esc(hoursText(d))}</span></span>
                     </button></li>`).join('')
                 : '<li class="hint">No doctors are listed in this department yet.</li>';
             goToStep(2);
@@ -163,6 +166,15 @@ document.addEventListener('DOMContentLoaded', () => {
         date.focus();
     });
 
+    // Say why a day has no times: the doctor does not work that weekday, or it is simply full or blocked.
+    function emptyDayMessage(doc, date) {
+        if (!doc) return 'No free times on this date. Try another day.';
+        const weekday = new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
+        return doc.working_days.includes(weekday)
+            ? 'No free times on this date. The day may be full or the doctor may be away. Try another day.'
+            : `${doc.name} does not see patients on this weekday. Sees patients ${hoursText(doc)}.`;
+    }
+
     $('book-date').addEventListener('change', async (e) => {
         booking.date = e.target.value;
         booking.time = null;
@@ -174,13 +186,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!slots) return;
         box.innerHTML = slots.length
             ? slots.map((t) => `<button type="button" class="slot" aria-pressed="false" data-time="${esc(t)}">${esc(t)}</button>`).join('')
-            : '<p class="hint">No free times on this date. Try another day.</p>';
+            : `<p class="hint">${esc(emptyDayMessage(doctorsById.get(booking.doctor), booking.date))}</p>`;
     });
 
     $('slots-container').addEventListener('click', (e) => {
         const slot = e.target.closest('.slot');
         if (!slot) return;
-        document.querySelectorAll('.slot').forEach((s) => s.setAttribute('aria-pressed', String(s === slot)));
+        $('slots-container').querySelectorAll('.slot').forEach((s) => s.setAttribute('aria-pressed', String(s === slot)));
         booking.time = slot.dataset.time;
         $('confirm-book-btn').hidden = false;
     });
@@ -248,13 +260,94 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="row-side">
                     <span class="chip chip-${esc(a.status.toLowerCase())}">${esc(a.status)}</span>
                     ${a.status === 'Completed' ? `<button type="button" class="btn btn-primary btn-sm view-record-btn" data-apt-id="${a.id}">View record</button>` : ''}
+                    ${a.status === 'Booked' ? `
+                        <button type="button" class="btn btn-quiet btn-sm reschedule-btn" data-apt-id="${a.id}" data-doctor-id="${a.doctor_id}" data-doctor="${esc(a.doctor_name)}" data-when="${esc(`${formatDate(a.appointment_date)}, ${a.appointment_time}`)}">Reschedule</button>
+                        <button type="button" class="btn btn-danger btn-sm cancel-apt-btn" data-apt-id="${a.id}" data-doctor="${esc(a.doctor_name)}" data-when="${esc(`${formatDate(a.appointment_date)}, ${a.appointment_time}`)}">Cancel</button>` : ''}
                 </div>
             </li>`).join('');
     }
 
-    $('appointments-list').addEventListener('click', (e) => {
-        const btn = e.target.closest('.view-record-btn');
-        if (btn) viewRecord(Number(btn.dataset.aptId), btn);
+    $('appointments-list').addEventListener('click', async (e) => {
+        const view = e.target.closest('.view-record-btn');
+        const move = e.target.closest('.reschedule-btn');
+        const cancel = e.target.closest('.cancel-apt-btn');
+        if (view) viewRecord(Number(view.dataset.aptId), view);
+        if (move) openReschedule(move);
+        if (cancel) {
+            const ok = await App.confirm(`Cancel your appointment with ${cancel.dataset.doctor} on ${cancel.dataset.when}? The time goes back to other patients.`, {
+                confirmLabel: 'Cancel appointment', danger: true,
+            });
+            if (!ok) return;
+            try {
+                await App.api(`/appointments/${cancel.dataset.aptId}/cancel`, 'POST');
+                App.showToast('Appointment cancelled.', 'success');
+                loadAppointments();
+            } catch (err) {
+                App.showToast(err.error || 'Could not cancel the appointment.', 'error');
+            }
+        }
+    });
+
+    // ---------- Reschedule ----------
+
+    const reModal = $('reschedule-modal');
+    App.closeOnBackdrop(reModal);
+    let re = null; // { id, doctorId, time, opener }
+
+    function reError(message) {
+        $('reschedule-error').textContent = message || '';
+        $('reschedule-error').hidden = !message;
+    }
+
+    function openReschedule(btn) {
+        re = { id: Number(btn.dataset.aptId), doctorId: Number(btn.dataset.doctorId), time: null, opener: btn };
+        $('reschedule-summary').textContent = `${btn.dataset.doctor}, currently ${btn.dataset.when}. Pick a new date, then a time.`;
+        const date = $('reschedule-date');
+        date.min = App.todayISO();
+        date.value = '';
+        $('reschedule-slots').replaceChildren();
+        $('reschedule-confirm').disabled = true;
+        reError('');
+        reModal.showModal();
+        date.focus();
+    }
+    const closeReschedule = () => reModal.close();
+    $('reschedule-close').addEventListener('click', closeReschedule);
+    $('reschedule-cancel').addEventListener('click', closeReschedule);
+    reModal.addEventListener('close', () => { if (re && re.opener.isConnected) re.opener.focus(); });
+
+    $('reschedule-date').addEventListener('change', async (e) => {
+        re.time = null;
+        $('reschedule-confirm').disabled = true;
+        reError('');
+        const box = $('reschedule-slots');
+        if (!e.target.value) return box.replaceChildren();
+        const slots = await App.load(`/appointments/slots?doctor_id=${re.doctorId}&date=${e.target.value}`);
+        if (!slots) return;
+        box.innerHTML = slots.length
+            ? slots.map((t) => `<button type="button" class="slot" aria-pressed="false" data-time="${esc(t)}">${esc(t)}</button>`).join('')
+            : '<p class="hint">No free times on this date. The doctor may not work that day or may be away.</p>';
+    });
+    $('reschedule-slots').addEventListener('click', (e) => {
+        const slot = e.target.closest('.slot');
+        if (!slot) return;
+        $('reschedule-slots').querySelectorAll('.slot').forEach((s) => s.setAttribute('aria-pressed', String(s === slot)));
+        re.time = slot.dataset.time;
+        $('reschedule-confirm').disabled = false;
+    });
+    $('reschedule-confirm').addEventListener('click', async () => {
+        const btn = $('reschedule-confirm');
+        btn.disabled = true;
+        try {
+            await App.api(`/appointments/${re.id}/reschedule`, 'PUT', { date: $('reschedule-date').value, time: re.time });
+            reModal.close();
+            App.showToast(`Moved to ${formatDate($('reschedule-date').value)} at ${re.time}.`, 'success');
+            loadAppointments();
+        } catch (err) {
+            reError(err.error || 'Could not move the appointment.');
+            btn.disabled = false;
+            if (/already been booked/.test(err.error || '')) $('reschedule-date').dispatchEvent(new Event('change'));
+        }
     });
     $('filter-form').addEventListener('submit', (e) => { e.preventDefault(); loadAppointments(); });
     $('filter-clear').addEventListener('click', () => {

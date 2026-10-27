@@ -38,6 +38,15 @@ const App = {
         return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
     },
 
+    // [1,2,3,4,5] -> "Mon to Fri"; [1,3,5] -> "Mon, Wed, Fri"
+    formatDays(days) {
+        const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const d = [...days].sort((a, b) => a - b);
+        if (d.length === 7) return 'Every day';
+        const consecutive = d.length > 2 && d.every((n, i) => i === 0 || n === d[i - 1] + 1);
+        return consecutive ? `${names[d[0] - 1]} to ${names[d[d.length - 1] - 1]}` : d.map((n) => names[n - 1]).join(', ');
+    },
+
     todayISO() {
         const d = new Date();
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

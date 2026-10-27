@@ -6,7 +6,10 @@
     <meta name="description" content="Campus clinic appointments for students, staff and doctors. A student project with demo data.">
     <meta name="color-scheme" content="light dark">
     <title>Sign in - KAPS MedTech</title>
-    <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="img/favicon-32.png" type="image/png" sizes="32x32">
+    <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#0a2f44">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -18,7 +21,7 @@
     <div class="auth-layout">
         <aside class="auth-panel">
             <div class="brand">
-                <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5 4.5 6v8.2c0 7.3 4.6 12.4 11.5 15.3 6.9-2.9 11.5-8 11.5-15.3V6z" fill="currentColor"/><path class="pulse" d="M7 16.5h4.6l2.2-5.6 3.6 10.4 2.4-6.2 1.2 1.4H25" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <img class="brand-mark" src="img/logo-mark.png" alt="" width="32" height="32">
                 <span class="brand-name">KAPS MedTech</span>
             </div>
 
@@ -41,6 +44,12 @@
 
         <main class="auth-main" id="auth-main">
             <div class="auth-card">
+                <section class="demo" id="demo-accounts" aria-labelledby="demo-title" hidden>
+                    <h2 id="demo-title" class="demo-title">Try a demo account</h2>
+                    <p class="hint">One click signs you in. Everything here is fictional.</p>
+                    <ul class="demo-list" id="demo-list"></ul>
+                </section>
+
                 <div class="tabs" role="tablist" aria-label="Account">
                     <button type="button" class="tab" role="tab" id="tab-login" aria-selected="true" aria-controls="login-form">Sign in</button>
                     <button type="button" class="tab" role="tab" id="tab-signup" aria-selected="false" aria-controls="signup-form" tabindex="-1">Create account</button>
