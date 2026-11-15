@@ -4,7 +4,7 @@
 
 A university clinic booking app. Students and staff pick a reason for a visit, a department, a doctor and a half-hour slot. Doctors work through a queue, record a diagnosis and prescriptions, and the patient sees the result in their account. It is a course project, built with Express, PostgreSQL and plain JavaScript.
 
-Hosted copy: https://kaps-medtech.vercel.app. It runs on free tiers. The database behind it can be paused or removed, and `/api/health` on that URL shows whether it is reachable. At the last check (26 October 2026) the database was gone; [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) explains how to bring up a new one.
+Hosted copy: https://kaps-medtech.vercel.app. It runs on free tiers. The database behind it can be paused or removed, and `/api/health` on that URL shows whether it is reachable. If it is down, [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) explains how to bring up a new one.
 
 ![Sign-in page](docs/screenshots/login-desktop.png)
 
